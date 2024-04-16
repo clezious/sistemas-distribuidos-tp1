@@ -64,13 +64,15 @@ El sistema debe soportar el incremento de los volumenes de computo, con tal de p
 ### Diagrama de Robustez
 
 ![Diagrama de robustez general](./images/diagrama_robustez_general.png)
-[Link al diagrama](https://app.diagrams.net/#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT#%7B%22pageId%22%3A%22pvgHEc-C2KMQIe-LH_zm%22%7D)
+
+[Link al diagrama](https://viewer.diagrams.net/?page-id=pvgHEc-C2KMQIe-LH_zm&highlight=0000ff&edit=_blank&layers=1&nav=1#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
 Imponemos una precondicion de que el cliente debe enviar primero todos los libros, de forma que el sistema los procese y guarde en sus filtros. Luego de esto, el cliente puede enviar las reviews.
 
 ### Diagrama de Despliegue
 
 ![Diagrama de despliegue](./images/diagrama_despliegue.png)
+
 [Link al diagrama](https://viewer.diagrams.net/?page-id=8r_P_Zw1fpBbOP0c5zG2&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=8r_P_Zw1fpBbOP0c5zG2#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
 ## Vista de Procesos
@@ -78,4 +80,5 @@ Imponemos una precondicion de que el cliente debe enviar primero todos los libro
 ### Diagrama de Actividades
 
 ![Diagrama de actividades](./images/diagrama_actividades.png)
+
 [Link al diagrama](https://viewer.diagrams.net/?page-id=YzJNP-XYQnWjph2-Tj47&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=YzJNP-XYQnWjph2-Tj47#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
