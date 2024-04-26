@@ -39,7 +39,7 @@ class Client():
 
 
     def send_file(self, file: TextIOWrapper):
-        for line in file.readlines():
+        while line := file.readline():
             try:
                 self.send_line(line)
                 logging.debug("Sent line: %s", line.strip())
