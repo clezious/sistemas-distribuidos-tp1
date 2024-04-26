@@ -1,10 +1,8 @@
 from configparser import ConfigParser
-from io import TextIOWrapper
 import os
-import socket
 import logging
+from client import Client
 
-LENGTH_BYTES = 2
 
 def initialize_log(logging_level):
     """
@@ -51,33 +49,14 @@ def initialize_config():
     return config_params
 
 
-def send_line(s: socket.socket, line: str):
-    encoded_line = line.encode()
-    length_bytes = len(encoded_line).to_bytes(LENGTH_BYTES, byteorder='big')
-    encoded_msg = length_bytes + encoded_line
-    s.sendall(encoded_msg)
-
-
-def send_file(s: socket.socket, file: TextIOWrapper):
-    for line in file.readlines():
-        try:
-            send_line(s, line)
-            logging.debug("Sent line: %s", line.strip())
-        except BrokenPipeError:
-            logging.info("Connection closed")
-            break
-
-
 def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
-    logging.info("Client started")
-    with open('./datasets/books_data.csv', encoding="utf-8") as csvfile:
-        csvfile.readline() # Skip header
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((config_params["book_boundary_ip"], config_params["book_boundary_port"]))
-            logging.info("Connected to book boundary")
-            send_file(s, csvfile)
+    client = Client(
+        "./datasets/books_data.csv", 
+        config_params["book_boundary_ip"], 
+        config_params["book_boundary_port"])
+    client.run()
     logging.info("Sent all books")
 
 
