@@ -10,6 +10,16 @@ services:
     entrypoint: python3 /main.py book_q
     networks:
       - test_net
+  review_boundary:
+    container_name: review_boundary
+    image: boundary:latest
+    environment:
+      - SERVER_PORT=12345
+      - SERVER_LISTEN_BACKLOG=5
+      - LOGGING_LEVEL=INFO
+    entrypoint: python3 /main.py review_q
+    networks:
+      - test_net
   client:
     container_name: client
     image: client:latest
