@@ -17,7 +17,7 @@ class Client():
 
         logging.info("Client running")
         with open(self.file_path, encoding="utf-8") as csvfile:
-            csvfile.readline()
+            csvfile.readline() # Skip header
             self.__connect()
             with self.socket:
                 self.send_file(csvfile)
