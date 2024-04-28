@@ -30,16 +30,17 @@ class Middleware:
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.channel.start_consuming()
+        logging.info("Middleware started")
         
 
     def send(self, data: bytes):
         for queue in self.output_queues:
             self.channel.basic_publish(exchange='', routing_key=queue, body=data)
-            logging.info("Sent to queue %s: %s", queue, data)
+            logging.debug("Sent to queue %s: %s", queue, data)
         
         for exchange in self.output_exchanges:
             self.channel.basic_publish(exchange=exchange, routing_key='', body=data)
-            logging.info("Sent to exchange %s: %s", exchange, data)
+            logging.debug("Sent to exchange %s: %s", exchange, data)
 
 
     def shutdown(self):
