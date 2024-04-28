@@ -15,10 +15,7 @@ class Server():
         self.server_socket = server_socket
         self.port = port
 
-        self.broker_connection = Middleware(output_queues=[output_queue])
-        self.broker_connection.send(
-            f"Server started on port {port}".encode())
-        
+        self.broker_connection = Middleware(output_queues=[output_queue])        
         logging.info(
             "Listening for connections and redirecting to %s", output_queue)
         
