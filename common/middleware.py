@@ -31,7 +31,9 @@ class Middleware:
         self.input_queues = input_queues
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
-        self.channel.start_consuming()
+
+        if self.input_queues:
+            self.channel.start_consuming()
         logging.info("Middleware started")
         
 
