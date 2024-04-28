@@ -51,16 +51,16 @@ def initialize_config():
 
 def parse_args() -> list[str]:
     parser = ArgumentParser()
-    parser.add_argument("destination_queue", type=str,
-                        help="The destination queue for the messages")
-    return parser.parse_args().destination_queue
+    parser.add_argument("output_queue", type=str,
+                        help="The output queue for the messages")
+    return parser.parse_args().output_queue
 
 
 def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
-    destination_queue = parse_args()
-    server = Server(config_params["port"], config_params["listen_backlog"], destination_queue)
+    output_queue = parse_args()
+    server = Server(config_params["port"], config_params["listen_backlog"], output_queue)
     server.run()
 
 
