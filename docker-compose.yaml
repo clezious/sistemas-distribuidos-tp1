@@ -1,0 +1,70 @@
+name: tp1
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    command: rabbitmq-server
+    expose:
+      - "5672"
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test_net
+
+  book_boundary:
+    container_name: book_boundary
+    image: boundary:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVER_PORT=12345
+      - SERVER_LISTEN_BACKLOG=5
+      - LOGGING_LEVEL=INFO
+    depends_on:
+      - rabbitmq
+    entrypoint: python3 /main.py book_q
+    networks:
+      - test_net
+
+  review_boundary:
+    container_name: review_boundary
+    image: boundary:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVER_PORT=12345
+      - SERVER_LISTEN_BACKLOG=5
+      - LOGGING_LEVEL=INFO
+    depends_on:
+      - rabbitmq
+    entrypoint: python3 /main.py review_q
+    networks:
+      - test_net
+
+  client:
+    container_name: client
+    image: client:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BOOK_BOUNDARY_PORT=12345
+      - BOOK_BOUNDARY_IP=book_boundary
+      - LOGGING_LEVEL=INFO
+    depends_on:
+      - book_boundary
+    entrypoint: python3 /main.py
+    networks:
+      - test_net
+    volumes:
+      - ./datasets:/datasets
+
+networks:
+  test_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
+
+  
