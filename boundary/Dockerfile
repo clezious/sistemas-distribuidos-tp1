@@ -1,4 +1,3 @@
-FROM rabbitmq:3.13.1
-RUN apt-get update && apt-get install -y python3
+FROM python:3.9.7-slim
 COPY boundary /
 ENTRYPOINT ["/bin/sh"]
