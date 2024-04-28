@@ -1,5 +1,20 @@
 name: tp1
 services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    command: rabbitmq-server
+    expose:
+      - "5672"
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 5s
+      timeout: 15s
+      retries: 1
+    networks:
+      - test_net
   book_boundary:
     container_name: book_boundary
     image: boundary:latest
@@ -7,6 +22,9 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
+    depends_on:
+      - rabbitmq
+    restart: on-failure
     entrypoint: python3 /main.py book_q
     networks:
       - test_net
@@ -17,6 +35,9 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
+    depends_on:
+      - rabbitmq
+    restart: on-failure
     entrypoint: python3 /main.py review_q
     networks:
       - test_net
