@@ -2,13 +2,14 @@ import logging
 from typing import Callable
 import pika
 
+RABBITMQ_HOST = 'rabbitmq'
 RABBITMQ_PORT = 5672
 
 class Middleware:
     def __init__(self, input_queues: list[tuple[str, str]] = [], callback: Callable = None, 
                  output_queues: list[str] = [], output_exchanges: list[str] = []):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters('rabbitmq', RABBITMQ_PORT))
+            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
         for queue, exchange in input_queues:
             self.channel.queue_declare(queue=queue)
