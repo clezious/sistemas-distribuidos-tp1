@@ -9,10 +9,10 @@ services:
     ports:
       - "127.0.0.1:15672:15672"
     healthcheck:
-      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
-      interval: 5s
-      timeout: 15s
-      retries: 1
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - test_net
 
@@ -26,7 +26,6 @@ services:
       - LOGGING_LEVEL=INFO
     depends_on:
       - rabbitmq
-    restart: on-failure
     entrypoint: python3 /main.py book_q
     networks:
       - test_net
@@ -41,7 +40,6 @@ services:
       - LOGGING_LEVEL=INFO
     depends_on:
       - rabbitmq
-    restart: on-failure
     entrypoint: python3 /main.py review_q
     networks:
       - test_net

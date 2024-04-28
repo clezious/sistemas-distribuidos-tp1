@@ -11,6 +11,7 @@ class Middleware:
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
+        
         for queue, exchange in input_queues:
             self.channel.queue_declare(queue=queue)
             if exchange:
