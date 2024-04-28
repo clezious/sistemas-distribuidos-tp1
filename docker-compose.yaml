@@ -15,6 +15,7 @@ services:
       retries: 1
     networks:
       - test_net
+
   book_boundary:
     container_name: book_boundary
     image: boundary:latest
@@ -28,6 +29,7 @@ services:
     entrypoint: python3 /main.py book_q
     networks:
       - test_net
+
   review_boundary:
     container_name: review_boundary
     image: boundary:latest
@@ -41,6 +43,7 @@ services:
     entrypoint: python3 /main.py review_q
     networks:
       - test_net
+
   client:
     container_name: client
     image: client:latest
