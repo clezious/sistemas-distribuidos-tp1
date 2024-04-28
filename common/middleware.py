@@ -49,3 +49,4 @@ class Middleware:
         self.connection.close()
         self.connection = None
         self.channel = None
+        logging.info("Middleware stopped")
