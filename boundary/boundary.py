@@ -1,20 +1,23 @@
 import logging
 import signal
 import socket
+from boundary_type import BoundaryType
 from common.middleware import Middleware
 from common.book import Book
+from common.review import Review
 
 MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
 
 
 class Boundary():
-    def __init__(self, port: int, backlog: int, output_exchange: str):
+    def __init__(self, port: int, backlog: int, output_exchange: str, boundary_type: BoundaryType):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('', port))
         server_socket.listen(backlog)
         self.server_socket = server_socket
         self.port = port
+        self.boundary_type = boundary_type
 
         self.broker_connection = Middleware(output_exchanges=[output_exchange])
         logging.info(
@@ -34,8 +37,12 @@ class Boundary():
             try:
                 data = receive_line(client_socket).decode().strip()
                 logging.debug("Received line: %s", data)
-                book = Book.from_csv_row(data)
-                self.broker_connection.send(book.encode())
+                if self.boundary_type == BoundaryType.BOOK:
+                    book = Book.from_csv_row(data)
+                    self.broker_connection.send(book.encode())
+                elif self.boundary_type == BoundaryType.REVIEW:
+                    review = Review.from_csv_row(data)
+                    self.broker_connection.send(review.encode())
             except ConnectionResetError:
                 logging.info("Connection closed by client")
                 break

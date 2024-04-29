@@ -3,6 +3,7 @@ from configparser import ConfigParser
 import os
 import logging
 from boundary import Boundary
+from boundary_type import BoundaryType
 
 
 def initialize_log(logging_level):
@@ -41,8 +42,8 @@ def initialize_config():
             os.getenv('SERVER_LISTEN_BACKLOG', config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
-        config_params["output_exchange"] = os.getenv(
-            'OUTPUT_EXCHANGE', config["DEFAULT"]["OUTPUT_EXCHANGE"])
+        config_params["output_exchange"] = os.getenv('OUTPUT_EXCHANGE')
+        config_params["boundary_type"] = os.getenv('BOUNDARY_TYPE')
     except KeyError as e:
         raise e
     except ValueError as e:
@@ -52,13 +53,11 @@ def initialize_config():
 
 
 
-
-
 def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
-    output_exchange = config_params["output_exchange"]
-    boundary = Boundary(config_params["port"], config_params["listen_backlog"], output_exchange)
+    boundary_type = BoundaryType.from_str(config_params["boundary_type"])
+    boundary = Boundary(config_params["port"], config_params["listen_backlog"], config_params["output_exchange"], boundary_type)
     boundary.run()
 
 
