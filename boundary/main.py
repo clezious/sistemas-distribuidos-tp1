@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from configparser import ConfigParser
 import os
 import logging
-from server import Server
+from boundary import Boundary
 
 
 def initialize_log(logging_level):
@@ -60,8 +60,8 @@ def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     output_queue = parse_args()
-    server = Server(config_params["port"], config_params["listen_backlog"], output_queue)
-    server.run()
+    boundary = Boundary(config_params["port"], config_params["listen_backlog"], output_queue)
+    boundary.run()
 
 
 if __name__ == "__main__":

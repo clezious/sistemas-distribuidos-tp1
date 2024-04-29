@@ -8,7 +8,7 @@ MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
 
 
-class Server():
+class Boundary():
     def __init__(self, port: int, backlog: int, output_queue: str):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('', port))
