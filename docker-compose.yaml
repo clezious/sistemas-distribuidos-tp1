@@ -31,33 +31,7 @@ services:
     image: book_filter:latest
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - FILTER_BY_FIELD="categories"
-      - FILTER_BY_VALUES=["Computers"]
-      - INPUT_QUEUES={"books_filter_by_category_computers":"books"}
-      - OUTPUT_QUEUES=["computers_books"]
-      - OUTPUT_EXCHANGES=[]
-    networks: 
-      - test_net
-  
-  book_filter_by_category_computers_2:
-    image: book_filter:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - FILTER_BY_FIELD="categories"
-      - FILTER_BY_VALUES=["Computers"]
-      - INPUT_QUEUES={"books_filter_by_category_computers":"books"}
-      - OUTPUT_QUEUES=["computers_books"]
-      - OUTPUT_EXCHANGES=[]
-    networks: 
-      - test_net
-  
-  book_filter_by_category_computers_3:
-    image: book_filter:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
+      - LOGGING_LEVEL=INFO
       - FILTER_BY_FIELD="categories"
       - FILTER_BY_VALUES=["Computers"]
       - INPUT_QUEUES={"books_filter_by_category_computers":"books"}
@@ -70,20 +44,7 @@ services:
     image: book_filter:latest
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - FILTER_BY_FIELD="year"
-      - FILTER_BY_VALUES=[2000,2023]
-      - INPUT_QUEUES={"computers_books":""}
-      - OUTPUT_QUEUES=["2000_2023_computers_books"]
-      - OUTPUT_EXCHANGES=[]
-    networks: 
-      - test_net
-
-  filter_books_by_year_2000_2023_2:
-    image: book_filter:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
+      - LOGGING_LEVEL=INFO
       - FILTER_BY_FIELD="year"
       - FILTER_BY_VALUES=[2000,2023]
       - INPUT_QUEUES={"computers_books":""}
@@ -96,33 +57,7 @@ services:
     image: book_filter:latest
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - FILTER_BY_FIELD="title"
-      - FILTER_BY_VALUES=["distributed"]
-      - INPUT_QUEUES={"2000_2023_computers_books":""}
-      - OUTPUT_QUEUES=["2000_2023_computers_distributed_books"]
-      - OUTPUT_EXCHANGES=[]
-    networks: 
-      - test_net
-
-  filter_books_by_title_distributed_2:
-    image: book_filter:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-      - FILTER_BY_FIELD="title"
-      - FILTER_BY_VALUES=["distributed"]
-      - INPUT_QUEUES={"2000_2023_computers_books":""}
-      - OUTPUT_QUEUES=["2000_2023_computers_distributed_books"]
-      - OUTPUT_EXCHANGES=[]
-    networks: 
-      - test_net
-
-  filter_books_by_title_distributed_3:
-    image: book_filter:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
+      - LOGGING_LEVEL=INFO
       - FILTER_BY_FIELD="title"
       - FILTER_BY_VALUES=["distributed"]
       - INPUT_QUEUES={"2000_2023_computers_books":""}
