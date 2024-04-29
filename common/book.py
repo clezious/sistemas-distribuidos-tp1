@@ -9,7 +9,7 @@ class Book:
     def __init__(self,
                  title: str,
                  description: str,
-                 authors: str,
+                 authors: list[str],
                  publisher: str,
                  year: int,
                  categories: list):
@@ -26,7 +26,7 @@ class Book:
         fields = list(csv.reader([csv_row]))[0]
         title = fields[0].strip()
         description = fields[1].strip()
-        authors = fields[3].strip()
+        authors = fields[2].strip().split(',')
         publisher = fields[5].strip()
         year = Book.extract_year(fields[6].strip())
         categories = Book.extract_categories(fields[8].strip())
@@ -71,13 +71,19 @@ class Book:
             for str in values:
                 if str.upper() in self.title.upper():
                     return True
+                
         if field == 'authors':
-            return self.author in values
+            for author in self.authors:
+                if author in values:
+                    return True
+                
         if field == 'year' and self.year is not None:
             if self.year >= values[0] and self.year <= values[1]:
                 return True
+            
         if field == 'categories' and self.categories is not None:
             for category in self.categories:
                 if category in values:
                     return True
+                
         return False
