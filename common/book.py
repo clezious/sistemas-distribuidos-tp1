@@ -42,11 +42,11 @@ class Book:
     @staticmethod
     def extract_categories(x: str):
         if not x:
-            return None
+            return []
         try:
             return json.loads(x.replace("'", '"'))
         except json.JSONDecodeError:
-            return None
+            return []
 
     def encode(self):
         return json.dumps([self.title, self.description, self.authors,
