@@ -9,6 +9,7 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
+      - OUTPUT_EXCHANGE=books
     networks:
       - test_net
 

@@ -41,6 +41,8 @@ def initialize_config():
             os.getenv('SERVER_LISTEN_BACKLOG', config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
+        config_params["output_exchange"] = os.getenv(
+            'OUTPUT_EXCHANGE', config["DEFAULT"]["OUTPUT_EXCHANGE"])
     except KeyError as e:
         raise e
     except ValueError as e:
@@ -49,18 +51,14 @@ def initialize_config():
     return config_params
 
 
-def parse_args() -> list[str]:
-    parser = ArgumentParser()
-    parser.add_argument("output_queue", type=str,
-                        help="The output queue for the messages")
-    return parser.parse_args().output_queue
+
 
 
 def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
-    output_queue = parse_args()
-    boundary = Boundary(config_params["port"], config_params["listen_backlog"], output_queue)
+    output_exchange = config_params["output_exchange"]
+    boundary = Boundary(config_params["port"], config_params["listen_backlog"], output_exchange)
     boundary.run()
 
 

@@ -3,4 +3,4 @@ RUN pip install pika
 COPY /boundary /src
 COPY /common /src/common
 WORKDIR /src
-ENTRYPOINT ["python3", "main.py", "books"]
+ENTRYPOINT ["python3", "main.py"]
