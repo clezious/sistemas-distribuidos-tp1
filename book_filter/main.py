@@ -1,38 +1,27 @@
-import signal
-import os
 import json
-from common.book import Book
-from common.middleware import Middleware
+import logging
+import os
+import signal
+
+from book_filter import BookFilter
+
+def initialize_log(logging_level):
+    """
+    Python custom logging initialization
+
+    Current timestamp is added to be able to identify in docker
+    compose logs the date when the log has arrived
+    """
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging_level,
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
 
 
-class BookFilter:
-    def __init__(self,
-                 input_queues: dict,
-                 output_queues: list,
-                 output_exchanges: list):
-        self.middleware: Middleware = Middleware(input_queues,
-                                                 self.filter_book,
-                                                 output_queues,
-                                                 output_exchanges)
 
-    def start(self):
-        self.middleware.start()
+initialize_log(os.getenv("LOGGING_LEVEL") or "INFO")
 
-    def shutdown(self):
-        print(" [x] Graceful shutdown")
-        self.middleware.shutdown()
-
-    def filter_book(self, ch, method, properties, body):
-        book = Book.decode(body)
-        print(f" [x] Received {book}")
-        if book.filter_by(filter_by_field, filter_by_values):
-            print(" [x] Filter passed. ")
-            self.middleware.send(book.encode())
-        print(" [x] Done")
-
-
-filter_by_field: str = json.loads(os.getenv("FILTER_BY_FIELD")) or ''
-filter_by_values: list = json.loads(os.getenv("FILTER_BY_VALUES")) or []
 input_queues: dict = json.loads(os.getenv("INPUT_QUEUES")) or {}
 output_queues = json.loads(os.getenv("OUTPUT_QUEUES")) or []
 output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES")) or []
