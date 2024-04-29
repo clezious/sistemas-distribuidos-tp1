@@ -39,6 +39,8 @@ def initialize_config():
             os.getenv('BOOK_BOUNDARY_PORT', config["DEFAULT"]["BOOK_BOUNDARY_PORT"]))
         config_params["book_boundary_ip"] = os.getenv(
             'BOOK_BOUNDARY_IP', config["DEFAULT"]["BOOK_BOUNDARY_IP"])
+        config_params["review_boundary_port"] = int(os.getenv('REVIEW_BOUNDARY_PORT'))
+        config_params["review_boundary_ip"] = os.getenv('REVIEW_BOUNDARY_IP')
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
     except KeyError as e:
@@ -58,6 +60,14 @@ def main():
         config_params["book_boundary_port"])
     client.run()
     logging.info("Sent all books")
+
+    client = Client(
+        "../datasets/books_rating.csv",
+        config_params["review_boundary_ip"],
+        config_params["review_boundary_port"])
+    client.run()
+    logging.info("Sent all reviews")
+    
 
 
 if __name__ == "__main__":

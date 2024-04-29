@@ -10,6 +10,20 @@ services:
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
       - OUTPUT_EXCHANGE=books
+      - BOUNDARY_TYPE=book
+    networks:
+      - test_net
+
+  review_boundary:
+    container_name: review_boundary
+    image: boundary:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SERVER_PORT=12345
+      - SERVER_LISTEN_BACKLOG=5
+      - LOGGING_LEVEL=INFO
+      - OUTPUT_EXCHANGE=reviews
+      - BOUNDARY_TYPE=review
     networks:
       - test_net
 
@@ -22,6 +36,8 @@ services:
       - PYTHONUNBUFFERED=1
       - BOOK_BOUNDARY_PORT=12345
       - BOOK_BOUNDARY_IP=book_boundary
+      - REVIEW_BOUNDARY_PORT=12345
+      - REVIEW_BOUNDARY_IP=review_boundary
       - LOGGING_LEVEL=INFO
     depends_on:
       - book_boundary
