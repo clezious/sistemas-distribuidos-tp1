@@ -2,6 +2,7 @@ import logging
 import signal
 import socket
 from common.middleware import Middleware
+from common.book import Book
 
 MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
@@ -15,10 +16,9 @@ class Server():
         self.server_socket = server_socket
         self.port = port
 
-        self.broker_connection = Middleware(output_queues=[output_queue])        
+        self.broker_connection = Middleware(output_exchanges=[output_queue])
         logging.info(
             "Listening for connections and redirecting to %s", output_queue)
-        
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
@@ -32,9 +32,10 @@ class Server():
     def __handle_client_connection(self, client_socket: socket.socket):
         while True:
             try:
-                data = receive_line(client_socket)
-                logging.debug("Received line: %s", data.decode().strip())
-                self.broker_connection.send(data)
+                data = receive_line(client_socket).decode().strip()
+                logging.debug("Received line: %s", data)
+                book = Book.from_csv_row(data)
+                self.broker_connection.send(book.encode())
             except ConnectionResetError:
                 logging.info("Connection closed by client")
                 break
