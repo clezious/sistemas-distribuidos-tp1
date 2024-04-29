@@ -53,8 +53,8 @@ def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     client = Client(
-        "./datasets/books_data.csv", 
-        config_params["book_boundary_ip"], 
+        "../datasets/books_data.csv",
+        config_params["book_boundary_ip"],
         config_params["book_boundary_port"])
     client.run()
     logging.info("Sent all books")
