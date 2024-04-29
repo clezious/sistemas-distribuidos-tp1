@@ -11,7 +11,7 @@ class Book:
                  description: str,
                  authors: str,
                  publisher: str,
-                 year: str,
+                 year: int,
                  categories: list):
         self.title = title
         self.description = description
@@ -36,7 +36,7 @@ class Book:
     def extract_year(x: str):
         if x:
             result = YEAR_REGEX.search(x)
-            return result.group(1) if result else None
+            return int(result.group(1)) if result else None
         return None
 
     @staticmethod
@@ -68,11 +68,14 @@ class Book:
 
     def filter_by(self, field: str, values: list):
         if field == 'title':
-            return self.title in values
-        if field == 'author':
+            for str in values:
+                if str.upper() in self.title.upper():
+                    return True
+        if field == 'authors':
             return self.author in values
         if field == 'year' and self.year is not None:
-            return self.year in values
+            if self.year >= values[0] and self.year <= values[1]:
+                return True
         if field == 'categories' and self.categories is not None:
             for category in self.categories:
                 if category in values:
