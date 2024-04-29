@@ -1,21 +1,6 @@
+version: '3.9'
 name: tp1
 services:
-  rabbitmq:
-    container_name: rabbitmq
-    image: rabbitmq:3-management
-    command: rabbitmq-server
-    expose:
-      - "5672"
-    ports:
-      - "127.0.0.1:15672:15672"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:15672"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - test_net
-
   book_boundary:
     container_name: book_boundary
     image: boundary:latest
@@ -24,29 +9,14 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
-    depends_on:
-      - rabbitmq
-    entrypoint: python3 /main.py book_q
-    networks:
-      - test_net
-
-  review_boundary:
-    container_name: review_boundary
-    image: boundary:latest
-    environment:
-      - PYTHONUNBUFFERED=1
-      - SERVER_PORT=12345
-      - SERVER_LISTEN_BACKLOG=5
-      - LOGGING_LEVEL=INFO
-    depends_on:
-      - rabbitmq
-    entrypoint: python3 /main.py review_q
     networks:
       - test_net
 
   client:
     container_name: client
     image: client:latest
+    volumes:
+      - ./datasets:/datasets
     environment:
       - PYTHONUNBUFFERED=1
       - BOOK_BOUNDARY_PORT=12345
@@ -54,11 +24,36 @@ services:
       - LOGGING_LEVEL=INFO
     depends_on:
       - book_boundary
-    entrypoint: python3 /main.py
     networks:
+      - test_net    
+      
+  book_filter_by_category:
+    container_name: book_filter_by_category
+    image: book_filter:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=DEBUG
+      - FILTER_BY_FIELD="categories"
+      - FILTER_BY_VALUES=["Fiction"]
+      - INPUT_QUEUES={"books_filter_by_category":"books"}
+      - OUTPUT_QUEUES=["fiction_books"]
+      - OUTPUT_EXCHANGES=[]
+    networks: 
       - test_net
-    volumes:
-      - ./datasets:/datasets
+
+  filter_books_by_year:
+    container_name: filter_books_by_year
+    image: book_filter:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=DEBUG
+      - FILTER_BY_FIELD="year"
+      - FILTER_BY_VALUES=["2001","2005", "2009"]
+      - INPUT_QUEUES={"fiction_books":""}
+      - OUTPUT_QUEUES=["fiction_books_filtered_by_year"]
+      - OUTPUT_EXCHANGES=[]
+    networks: 
+      - test_net
 
 networks:
   test_net:
@@ -66,5 +61,3 @@ networks:
       driver: default
       config:
         - subnet: 172.25.125.0/24
-
-  
