@@ -67,6 +67,16 @@ services:
     networks: 
       - test_net
 
+  author_decades_counter:
+    image: author_decades_counter:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - INPUT_QUEUES={"authors_books_test":"books"}
+      - OUTPUT_QUEUES=["query2_result"]
+    networks: 
+      - test_net
+
 networks:
   test_net:
     ipam:
