@@ -8,17 +8,17 @@ MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
 
 
-class Server():
-    def __init__(self, port: int, backlog: int, output_queue: str):
+class Boundary():
+    def __init__(self, port: int, backlog: int, output_exchange: str):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('', port))
         server_socket.listen(backlog)
         self.server_socket = server_socket
         self.port = port
 
-        self.broker_connection = Middleware(output_exchanges=[output_queue])
+        self.broker_connection = Middleware(output_exchanges=[output_exchange])
         logging.info(
-            "Listening for connections and redirecting to %s", output_queue)
+            "Listening for connections and redirecting to %s", output_exchange)
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)

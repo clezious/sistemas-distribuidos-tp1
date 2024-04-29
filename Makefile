@@ -28,3 +28,11 @@ docker-compose-down:
 docker-compose-logs:
 	docker compose -f docker-compose.yaml logs -f
 .PHONY: docker-compose-logs
+
+rabbitmq-up:
+	docker compose -f docker-compose-rabbit.yaml up -d
+.PHONY: rabbitmq-up
+
+rabbitmq-down:
+	docker compose -f docker-compose-rabbit.yaml down
+.PHONY: rabbitmq-down
