@@ -41,8 +41,9 @@ services:
       - LOGGING_LEVEL=INFO
     depends_on:
       - book_boundary
+      - review_boundary
     networks:
-      - test_net    
+      - test_net  
       
   book_filter_by_category_computers:
     image: book_filter:latest
