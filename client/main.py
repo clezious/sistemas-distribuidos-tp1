@@ -63,11 +63,11 @@ def main():
     logging.info("Sent all books")
 
 
-    client = Client(
+    review_client = Client(
         "../datasets/books_rating_test.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"])
-    client.run()
+    review_client.run()
     logging.info("Sent all reviews")
 
     # TODO: Fix bug where the program wont finish sending the files
