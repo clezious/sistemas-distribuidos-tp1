@@ -16,10 +16,10 @@ class Client():
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
 
         logging.info("Client running")
-        with open(self.file_path, encoding="utf-8") as csvfile:
-            csvfile.readline() # Skip header
-            self.__connect()
-            with self.socket:
+        self.__connect()
+        with self.socket:
+            with open(self.file_path, encoding="utf-8") as csvfile:
+                csvfile.readline() # Skip header
                 self.send_file(csvfile)
 
     def __connect(self):
@@ -31,7 +31,7 @@ class Client():
         # TODO: Implement graceful shutdown
         raise NotImplementedError("Graceful shutdown not implemented")
 
-    def send_line(self, line: str):
+    def __send_line(self, line: str):
         encoded_line = line.encode()
         length_bytes = len(encoded_line).to_bytes(LENGTH_BYTES, byteorder='big')
         encoded_msg = length_bytes + encoded_line
@@ -41,7 +41,7 @@ class Client():
     def send_file(self, file: TextIOWrapper):
         while line := file.readline():
             try:
-                self.send_line(line)
+                self.__send_line(line.strip())
                 logging.debug("Sent line: %s", line.strip())
             except BrokenPipeError:
                 logging.info("Connection closed")

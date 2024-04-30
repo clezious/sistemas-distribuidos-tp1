@@ -1,6 +1,7 @@
 import logging
 from common.book import Book
 from common.middleware import Middleware
+from common.packet import Packet, PacketType
 
 
 class ReviewFilter:
@@ -20,17 +21,33 @@ class ReviewFilter:
         
     def _add_book(self, ch, method, properties, body):
         #TODO: Handle book EOF
-        book = Book.decode(body)
+        packet = Packet.decode(body)
+        if packet.packet_type == PacketType.EOF:
+            self.books_finished = True
+            logging.info("Received books EOF")
+            return
+        
+        book = packet.payload
         self.books[book.title] = book.authors
         logging.debug("Received and saved book: %s", book.title)
 
 
     def _filter_review(self, ch, method, properties, body):
+        packet = Packet.decode(body)
+        if packet.packet_type == PacketType.EOF:
+            logging.info("Received reviews EOF")
+            self.middleware.ack(method.delivery_tag)
+            return
+        
         if not self.books_finished:
-            logging.info("Received review but didnt get books EOF")
+            logging.debug("Received review but didnt get books EOF")
             self.middleware.nack(method.delivery_tag)
             return
         
-        logging.info("Received review, acknowledging...")
+        review = packet.payload
+        if review.book_title in self.books:
+            self.middleware.send(body)
+            logging.info("Filter passed - review for: %s", review.book_title)
+
         self.middleware.ack(method.delivery_tag)
 
