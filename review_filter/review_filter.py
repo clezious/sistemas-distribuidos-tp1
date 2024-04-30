@@ -20,7 +20,6 @@ class ReviewFilter:
         self.middleware.shutdown()
         
     def _add_book(self, ch, method, properties, body):
-        #TODO: Handle book EOF
         packet = Packet.decode(body)
         if packet.packet_type == PacketType.EOF:
             self.books_finished = True
@@ -30,13 +29,18 @@ class ReviewFilter:
         book = packet.payload
         self.books[book.title] = book.authors
         logging.debug("Received and saved book: %s", book.title)
-
+    
+    def _reset_filter(self):
+        self.books_finished = False
+        self.books = {}
+        logging.info("Filter reset")
 
     def _filter_review(self, ch, method, properties, body):
         packet = Packet.decode(body)
         if packet.packet_type == PacketType.EOF:
             logging.info("Received reviews EOF")
             self.middleware.ack(method.delivery_tag)
+            self._reset_filter()
             return
         
         if not self.books_finished:
