@@ -116,7 +116,7 @@ services:
       - FILTER_BY_VALUES=["distributed"]
       - BOOK_INPUT_QUEUE=["books_decade_90",""]
       - REVIEW_INPUT_QUEUE=["reviews_q","reviews"]
-      - OUTPUT_QUEUES=["2000_2023_computers_distributed_books"]
+      - OUTPUT_QUEUES=["reviews_1990_1999"]
       - OUTPUT_EXCHANGES=[]
     networks: 
       - test_net
