@@ -5,6 +5,7 @@ import signal
 
 from book_filter import BookFilter
 
+
 def initialize_log(logging_level):
     """
     Python custom logging initialization
@@ -17,7 +18,6 @@ def initialize_log(logging_level):
         level=logging_level,
         datefmt='%Y-%m-%d %H:%M:%S',
     )
-
 
 
 initialize_log(os.getenv("LOGGING_LEVEL") or "INFO")

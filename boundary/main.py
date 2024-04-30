@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from configparser import ConfigParser
 import os
 import logging
@@ -18,6 +17,7 @@ def initialize_log(logging_level):
         level=logging_level,
         datefmt='%Y-%m-%d %H:%M:%S',
     )
+
 
 def initialize_config():
     """ Parse env variables or config file to find program config params
@@ -39,7 +39,8 @@ def initialize_config():
         config_params["port"] = int(
             os.getenv('SERVER_PORT', config["DEFAULT"]["SERVER_PORT"]))
         config_params["listen_backlog"] = int(
-            os.getenv('SERVER_LISTEN_BACKLOG', config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
+            os.getenv('SERVER_LISTEN_BACKLOG',
+                      config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
         config_params["output_exchange"] = os.getenv('OUTPUT_EXCHANGE')
@@ -52,12 +53,12 @@ def initialize_config():
     return config_params
 
 
-
 def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     boundary_type = BoundaryType.from_str(config_params["boundary_type"])
-    boundary = Boundary(config_params["port"], config_params["listen_backlog"], config_params["output_exchange"], boundary_type)
+    boundary = Boundary(config_params["port"], config_params["listen_backlog"],
+                        config_params["output_exchange"], boundary_type)
     boundary.run()
 
 

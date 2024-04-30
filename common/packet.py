@@ -10,6 +10,7 @@ class PacketType(Enum):
     BOOK = 1
     REVIEW = 2
 
+
 class Packet:
     def __init__(self, type: PacketType, payload):
         self.packet_type = type
@@ -18,7 +19,7 @@ class Packet:
     def encode(self):
         encoded_payload = self.payload.encode() if self.payload else None
         return json.dumps([self.packet_type.value, encoded_payload])
-    
+
     @staticmethod
     def decode(data):
         fields = json.loads(data)

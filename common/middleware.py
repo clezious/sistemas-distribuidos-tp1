@@ -48,11 +48,13 @@ class Middleware:
 
     def send(self, data: str):
         for queue in self.output_queues:
-            self.channel.basic_publish(exchange='', routing_key=queue, body=data)
+            self.channel.basic_publish(
+                exchange='', routing_key=queue, body=data)
             logging.debug("Sent to queue %s: %s", queue, data)
 
         for exchange in self.output_exchanges:
-            self.channel.basic_publish(exchange=exchange, routing_key='', body=data)
+            self.channel.basic_publish(
+                exchange=exchange, routing_key='', body=data)
             logging.debug("Sent to exchange %s: %s", exchange, data)
 
     def shutdown(self):
@@ -63,15 +65,20 @@ class Middleware:
         self.channel = None
         logging.info("Middleware stopped")
 
-    def add_input_queue(self, input_queue: str, callback: Callable, exchange: str = "", exchange_type: str = "fanout", auto_ack=True):
+    def add_input_queue(self,
+                        input_queue: str,
+                        callback: Callable,
+                        exchange: str = "",
+                        exchange_type: str = "fanout",
+                        auto_ack=True):
         self.channel.queue_declare(queue=input_queue)
         if exchange:
             self.channel.exchange_declare(
-                    exchange=exchange, exchange_type=exchange_type)
+                exchange=exchange, exchange_type=exchange_type)
             self.channel.queue_bind(exchange=exchange, queue=input_queue)
 
         self.channel.basic_consume(
-                queue=input_queue, on_message_callback=callback, auto_ack=auto_ack)
+            queue=input_queue, on_message_callback=callback, auto_ack=auto_ack)
         self.input_queues[input_queue] = exchange
 
     def ack(self, delivery_tag):

@@ -18,14 +18,16 @@ def initialize_log(logging_level):
         datefmt='%Y-%m-%d %H:%M:%S',
     )
 
+
 def main():
     initialize_log(os.getenv('LOGGING_LEVEL', 'INFO'))
     input_queues: dict = json.loads(os.getenv("INPUT_QUEUES")) or {}
     output_queues = json.loads(os.getenv("OUTPUT_QUEUES")) or []
-    
+
     counter = DecadeCounter(input_queues, output_queues)
     logging.info("Decade counter starting")
     counter.start()
+
 
 if __name__ == '__main__':
     main()

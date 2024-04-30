@@ -37,10 +37,12 @@ def initialize_config():
     config_params = {}
     try:
         config_params["book_boundary_port"] = int(
-            os.getenv('BOOK_BOUNDARY_PORT', config["DEFAULT"]["BOOK_BOUNDARY_PORT"]))
+            os.getenv('BOOK_BOUNDARY_PORT',
+                      config["DEFAULT"]["BOOK_BOUNDARY_PORT"]))
         config_params["book_boundary_ip"] = os.getenv(
             'BOOK_BOUNDARY_IP', config["DEFAULT"]["BOOK_BOUNDARY_IP"])
-        config_params["review_boundary_port"] = int(os.getenv('REVIEW_BOUNDARY_PORT'))
+        config_params["review_boundary_port"] = int(
+            os.getenv('REVIEW_BOUNDARY_PORT'))
         config_params["review_boundary_ip"] = os.getenv('REVIEW_BOUNDARY_IP')
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
@@ -62,7 +64,6 @@ def main():
     book_client.run()
     logging.info("Sent all books")
 
-
     review_client = Client(
         "../datasets/books_rating_test.csv",
         config_params["review_boundary_ip"],
@@ -72,7 +73,6 @@ def main():
 
     # TODO: Fix bug where the program wont finish sending the files
     sleep(10)
-    
 
 
 if __name__ == "__main__":

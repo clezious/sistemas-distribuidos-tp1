@@ -1,9 +1,7 @@
 import logging
-from common.middleware import Middleware
 import os
 import json
 
-from common.book import Book
 from common.middleware import Middleware
 from common.packet import Packet, PacketType
 
@@ -36,7 +34,7 @@ class BookFilter:
             # self.middleware.send_back(body)
             self.middleware.send(body)
             return
-        
+
         book = packet.payload
         logging.debug(f" [x] Received {book}")
         if book.filter_by(filter_by_field, filter_by_values):

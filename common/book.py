@@ -71,19 +71,19 @@ class Book:
             for str in values:
                 if str.upper() in self.title.upper():
                     return True
-                
+
         if field == 'authors':
             for author in self.authors:
                 if author in values:
                     return True
-                
+
         if field == 'year' and self.year is not None:
             if self.year >= values[0] and self.year <= values[1]:
                 return True
-            
+
         if field == 'categories' and self.categories is not None:
             for category in self.categories:
                 if category in values:
                     return True
-                
+
         return False

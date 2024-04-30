@@ -12,7 +12,8 @@ LENGTH_BYTES = 2
 
 
 class Boundary():
-    def __init__(self, port: int, backlog: int, output_exchange: str, boundary_type: BoundaryType):
+    def __init__(self, port: int, backlog: int, output_exchange: str,
+                 boundary_type: BoundaryType):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(('', port))
         server_socket.listen(backlog)
@@ -46,7 +47,7 @@ class Boundary():
                 elif self.boundary_type == BoundaryType.REVIEW:
                     packet_type = PacketType.REVIEW
                     payload = Review.from_csv_row(data)
-                
+
                 packet = Packet(packet_type, payload)
                 self.broker_connection.send(packet.encode())
             except EOFError:

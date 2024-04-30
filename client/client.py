@@ -5,6 +5,7 @@ from io import TextIOWrapper
 
 LENGTH_BYTES = 2
 
+
 class Client():
     def __init__(self, file_path: str, ip: str, port: int):
         self.file_path = file_path
@@ -19,7 +20,7 @@ class Client():
         self.__connect()
         with self.socket:
             with open(self.file_path, encoding="utf-8") as csvfile:
-                csvfile.readline() # Skip header
+                csvfile.readline()  # Skip header
                 self.send_file(csvfile)
 
     def __connect(self):
@@ -33,10 +34,10 @@ class Client():
 
     def __send_line(self, line: str):
         encoded_line = line.encode()
-        length_bytes = len(encoded_line).to_bytes(LENGTH_BYTES, byteorder='big')
+        length_bytes = len(encoded_line).to_bytes(
+            LENGTH_BYTES, byteorder='big')
         encoded_msg = length_bytes + encoded_line
         self.socket.sendall(encoded_msg)
-
 
     def send_file(self, file: TextIOWrapper):
         while line := file.readline():
