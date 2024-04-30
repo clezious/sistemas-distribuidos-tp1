@@ -41,6 +41,7 @@ class ReviewFilter:
             logging.info("Received reviews EOF")
             self.middleware.ack(method.delivery_tag)
             self._reset_filter()
+            # TODO: Send EOF to output queues
             return
         
         if not self.books_finished:
