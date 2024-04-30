@@ -15,6 +15,7 @@ class Middleware:
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
+        self.channel.basic_qos(prefetch_count=1)
         self.input_queues = input_queues
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
@@ -61,3 +62,20 @@ class Middleware:
         self.connection = None
         self.channel = None
         logging.info("Middleware stopped")
+
+    def add_input_queue(self, input_queue: str, callback: Callable, exchange: str = "", exchange_type: str = "fanout", auto_ack=True):
+        self.channel.queue_declare(queue=input_queue)
+        if exchange:
+            self.channel.exchange_declare(
+                    exchange=exchange, exchange_type=exchange_type)
+            self.channel.queue_bind(exchange=exchange, queue=input_queue)
+
+        self.channel.basic_consume(
+                queue=input_queue, on_message_callback=callback, auto_ack=auto_ack)
+        self.input_queues[input_queue] = exchange
+
+    def ack(self, delivery_tag):
+        self.channel.basic_ack(delivery_tag=delivery_tag)
+
+    def nack(self, delivery_tag):
+        self.channel.basic_nack(delivery_tag=delivery_tag)

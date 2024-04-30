@@ -1,6 +1,6 @@
 import logging
-from common.book import Book
 from common.middleware import Middleware
+from common.packet import Packet, PacketType
 
 REQUIRED_DECADES = 10
 
@@ -17,7 +17,12 @@ class DecadeCounter:
         self.middleware.shutdown()
         
     def add_decade(self, ch, method, properties, body):
-        book = Book.decode(body)
+        packet = Packet.decode(body)
+        if packet.packet_type == PacketType.EOF:
+            logging.info("Received EOF")
+            return
+        
+        book = packet.payload
         author = book.authors[0].strip() if book.authors else None
         if not author or not book.year:
             return

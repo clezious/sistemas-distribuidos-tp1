@@ -3,8 +3,8 @@ import json
 
 
 class Review:
-    def __init__(self, title: str, score, text):
-        self.title = title
+    def __init__(self, book_title: str, score, text):
+        self.book_title = book_title
         self.score = score
         self.text = text
 
@@ -20,7 +20,7 @@ class Review:
         return Review(title, score, text)
     
     def encode(self):
-        return json.dumps([self.title, self.score, self.text])
+        return json.dumps([self.book_title, self.score, self.text])
 
     @staticmethod
     def decode(data: str):

@@ -41,8 +41,9 @@ services:
       - LOGGING_LEVEL=INFO
     depends_on:
       - book_boundary
+      - review_boundary
     networks:
-      - test_net    
+      - test_net  
       
   book_filter_by_category_computers:
     image: book_filter:latest
@@ -70,6 +71,19 @@ services:
     networks: 
       - test_net
 
+  filter_books_by_year_1990_1999:
+    image: book_filter:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - FILTER_BY_FIELD="year"
+      - FILTER_BY_VALUES=[1990,1999]
+      - INPUT_QUEUES={"books_filter_by_decade_90":"books"}
+      - OUTPUT_QUEUES=["books_decade_90"]
+      - OUTPUT_EXCHANGES=[]
+    networks: 
+      - test_net
+
   filter_books_by_title_distributed:
     image: book_filter:latest
     environment:
@@ -90,6 +104,20 @@ services:
       - LOGGING_LEVEL=INFO
       - INPUT_QUEUES={"authors_books_test":"books"}
       - OUTPUT_QUEUES=["query2_result"]
+    networks: 
+      - test_net
+      
+  review_filter:
+    image: review_filter:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - FILTER_BY_FIELD="title"
+      - FILTER_BY_VALUES=["distributed"]
+      - BOOK_INPUT_QUEUE=["books_decade_90",""]
+      - REVIEW_INPUT_QUEUE=["reviews_q","reviews"]
+      - OUTPUT_QUEUES=["reviews_1990_1999"]
+      - OUTPUT_EXCHANGES=[]
     networks: 
       - test_net
 

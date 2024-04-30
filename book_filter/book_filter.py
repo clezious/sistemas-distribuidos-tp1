@@ -5,6 +5,7 @@ import json
 
 from common.book import Book
 from common.middleware import Middleware
+from common.packet import Packet, PacketType
 
 filter_by_field: str = json.loads(os.getenv("FILTER_BY_FIELD")) or ''
 filter_by_values: list = json.loads(os.getenv("FILTER_BY_VALUES")) or []
@@ -28,9 +29,17 @@ class BookFilter:
         self.middleware.shutdown()
 
     def filter_book(self, ch, method, properties, body):
-        book = Book.decode(body)
+        packet = Packet.decode(body)
+        if packet.packet_type == PacketType.EOF:
+            logging.info("Received EOF")
+            # TODO: Make sure that every node has received the EOF
+            # self.middleware.send_back(body)
+            self.middleware.send(body)
+            return
+        
+        book = packet.payload
         logging.debug(f" [x] Received {book}")
         if book.filter_by(filter_by_field, filter_by_values):
             logging.debug(" [x] Filter passed. ")
-            self.middleware.send(book.encode())
+            self.middleware.send(packet.encode())
         logging.debug(" [x] Done")
