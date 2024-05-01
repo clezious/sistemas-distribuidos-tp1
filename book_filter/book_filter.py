@@ -28,7 +28,25 @@ class BookFilter:
 
     def filter_book(self, book: Book):
         logging.debug(f" [x] Received {book}")
-        if book.filter_by(filter_by_field, filter_by_values):
+        if self.filter_by(filter_by_field, filter_by_values, book):
             logging.debug(" [x] Filter passed. ")
             self.middleware.send(book.encode())
         logging.debug(" [x] Done")
+
+    def filter_by(self, field: str, compare_values: list[str], book: Book):
+        field_value = book.get(field)
+        if field == 'title':
+            for str in compare_values:
+                if str.upper() in field_value.upper():
+                    return True
+
+        elif field == 'year' and field_value is not None:
+            if field_value >= compare_values[0] and field_value <= compare_values[1]:
+                return True
+
+        else:
+            for value in compare_values:
+                if value in field_value:
+                    return True
+
+        return False
