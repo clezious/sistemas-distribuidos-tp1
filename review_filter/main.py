@@ -26,7 +26,6 @@ def main():
     output_queues = json.loads(os.getenv("OUTPUT_QUEUES")) or []
     output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES")) or []
 
-    logging.info(book_input_queue)
     filter = ReviewFilter(book_input_queue, review_input_queue,
                           output_queues, output_exchanges)
     logging.info("Review filter starting")
