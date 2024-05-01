@@ -16,7 +16,9 @@ class Middleware:
                  input_queues: dict[str, str] = {},
                  callback: Callable = None,
                  output_queues: list[str] = [],
-                 output_exchanges: list[str] = []):
+                 output_exchanges: list[str] = [],
+                 n_output_instances: int = 1
+                 ):
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
@@ -25,6 +27,7 @@ class Middleware:
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.callback = callback
+        self.n_output_instances = n_output_instances
         self._init_input()
         self._init_output()
 
@@ -33,8 +36,10 @@ class Middleware:
             self.add_input_queue(queue, self.callback, exchange=exchange)
 
     def _init_output(self):
-        for queue in self.output_queues:
-            self.channel.queue_declare(queue=queue)
+        for i in range(self.n_output_instances):
+            suffix = "" if self.n_output_instances == 1 else f'_{i}'
+            for queue in self.output_queues:
+                self.channel.queue_declare(queue=f'{queue}{suffix}')
 
         for exchange in self.output_exchanges:
             self.channel.exchange_declare(
@@ -45,10 +50,11 @@ class Middleware:
             self.channel.start_consuming()
         logging.info("Middleware started")
 
-    def send(self, data: str):
+    def send(self, data: str, instance_id: int = None):
+        suffix = f"_{instance_id}" if instance_id else ""
         for queue in self.output_queues:
             self.channel.basic_publish(
-                exchange='', routing_key=queue, body=data)
+                exchange='', routing_key=f'{queue}{suffix}', body=data)
             logging.debug("Sent to queue %s: %s", queue, data)
 
         for exchange in self.output_exchanges:

@@ -30,6 +30,8 @@ def initialize_config():
         config["CONTAINERS"]["REVIEW_FILTER_BY_BOOK_YEAR_1990_1999"])
     config_params["review_filter_by_book_category_fiction"] = int(
         config["CONTAINERS"]["REVIEW_FILTER_BY_BOOK_CATEGORY_FICTION"])
+    config_params["book_router_by_author"] = int(
+        config["CONTAINERS"]["BOOK_ROUTER_BY_AUTHOR"])
 
     return config_params
 
@@ -41,7 +43,7 @@ def main():
     with open("docker-compose-gen.yaml", "w") as f:
         yaml.dump(docker_compose_config, f,
                   sort_keys=False, default_flow_style=False)
-        
+
     print("Generated docker-compose-gen.yaml")
 
 

@@ -11,6 +11,7 @@ docker-image:
 	docker build -f ./book_filter/Dockerfile -t "book_filter:latest" .
 	docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .
 	docker build -f ./author_decades_counter/Dockerfile -t "author_decades_counter:latest" .
+	docker build -f ./router/Dockerfile -t "router:latest" .
 	# Execute this command from time to time to clean up intermediate stages generated 
 	# during client build (your hard drive will like this :) ). Don't leave uncommented if you 
 	# want to avoid rebuilding client image every time the docker-compose-up command 

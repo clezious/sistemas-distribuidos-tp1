@@ -44,8 +44,8 @@ class Boundary():
                     packet = Book.from_csv_row(data)
                 elif self.boundary_type == BoundaryType.REVIEW:
                     packet = Review.from_csv_row(data)
-
-                self.broker_connection.send(packet.encode())
+                if packet:
+                    self.broker_connection.send(packet.encode())
             except EOFError:
                 logging.info("EOF reached")
                 eof_packet = EOFPacket()
