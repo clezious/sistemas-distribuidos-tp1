@@ -64,7 +64,7 @@ class ReviewStatsService:
             logging.info("Sent top book to queue: %s", book_title)
 
         self.book_reviews = {}
-        logging.info("Filter reset")
+        logging.info("Service reset")
 
     def _update_review_stats(self, review: Review):
         self.book_reviews[review.book_title]["total_reviews"] += 1
