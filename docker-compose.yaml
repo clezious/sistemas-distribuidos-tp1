@@ -9,7 +9,7 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
-      - OUTPUT_EXCHANGE=books
+      - OUTPUT_EXCHANGES=["books"]
       - BOUNDARY_TYPE=book
     networks:
       - test_net
@@ -22,7 +22,7 @@ services:
       - SERVER_PORT=12345
       - SERVER_LISTEN_BACKLOG=5
       - LOGGING_LEVEL=INFO
-      - OUTPUT_EXCHANGE=reviews
+      - OUTPUT_EXCHANGES=["reviews"]
       - BOUNDARY_TYPE=review
     networks:
       - test_net
@@ -92,7 +92,7 @@ services:
       - FILTER_BY_FIELD="title"
       - FILTER_BY_VALUES=["distributed"]
       - INPUT_QUEUES={"2000_2023_computers_books":""}
-      - OUTPUT_QUEUES=["2000_2023_computers_distributed_books"]
+      - OUTPUT_QUEUES=["query1_result"]
       - OUTPUT_EXCHANGES=[]
     networks: 
       - test_net
@@ -112,8 +112,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=INFO
-      - FILTER_BY_FIELD="title"
-      - FILTER_BY_VALUES=["distributed"]
       - BOOK_INPUT_QUEUE=["books_decade_90",""]
       - REVIEW_INPUT_QUEUE=["reviews_q","reviews"]
       - OUTPUT_QUEUES=["reviews_1990_1999"]

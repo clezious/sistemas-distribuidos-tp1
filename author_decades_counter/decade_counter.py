@@ -19,7 +19,7 @@ class DecadeCounter:
         self.middleware.shutdown()
 
     def add_decade(self, book: Book):
-        author = book.authors[0].strip() if book.authors else None
+        author = book.authors if book.authors else None
         if not author or not book.year:
             return
 

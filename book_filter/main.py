@@ -29,4 +29,5 @@ output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES")) or []
 book_filter = BookFilter(input_queues, output_queues, output_exchanges)
 
 signal.signal(signal.SIGTERM, lambda signum, frame: book_filter.shutdown())
+logging.info("Starting book filter")
 book_filter.start()
