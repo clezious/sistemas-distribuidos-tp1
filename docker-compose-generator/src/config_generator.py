@@ -33,6 +33,7 @@ class ConfigGenerator:
         self._generate_author_decades_counters()
         self._generate_review_filters_by_book_year_1990_1999()
         self._generate_review_filters_by_book_category_fiction()
+        self._generate_book_router_by_author()
         return self.config
 
     def _generate_service(self,
@@ -155,7 +156,7 @@ class ConfigGenerator:
             "author_decades_counter:latest",
             [],
             ["test_net"],
-            input_queues={"author_decades_counter": "books"},
+            input_queues={"books_by_authors": ""},
             output_queues=["query2_result"],
             output_exchanges=[],
             replicas=replicas
@@ -183,6 +184,19 @@ class ConfigGenerator:
              'REVIEW_INPUT_QUEUE=["fiction_reviews_pre_filter","reviews"]'],
             ["test_net"],
             output_queues=["fiction_reviews"],
+            output_exchanges=[],
+            replicas=replicas
+        )
+
+    def _generate_book_router_by_author(self):
+        replicas = self.config_params["book_router_by_author"]
+        self._generate_service(
+            "book_router_by_author",
+            "router:latest",
+            ['HASH_BY_FIELD="authors"', 'N_INSTANCES=1'],
+            ["test_net"],
+            input_queues={"book_router_by_author": "books"},
+            output_queues=["books_by_authors"],
             output_exchanges=[],
             replicas=replicas
         )

@@ -29,10 +29,14 @@ class Book(Packet):
         fields = list(csv.reader([csv_row]))[0]
         title = fields[0].strip()
         description = fields[1].strip()
-        authors = fields[2].strip().split(',')
+        authors = fields[2].strip()  # Book.extract_array(fields[2].strip())
         publisher = fields[5].strip()
         year = Book.extract_year(fields[6].strip())
-        categories = Book.extract_categories(fields[8].strip())
+        categories = fields[8].strip()  # Book.extract_array(fields[8].strip())
+        for field in [title, authors, year, categories]:
+            if not field:
+                return None
+
         return Book(title, description, authors, publisher, year, categories)
 
     def packet_type(self):
@@ -54,7 +58,7 @@ class Book(Packet):
         return None
 
     @staticmethod
-    def extract_categories(x: str):
+    def extract_array(x: str):
         if not x:
             return []
         try:
@@ -74,6 +78,9 @@ class Book(Packet):
 
     def __str__(self):
         return self.encode()
+
+    def get(self, field: str):
+        return getattr(self, field, None)
 
     def filter_by(self, field: str, values: list):
         if field == 'title':
