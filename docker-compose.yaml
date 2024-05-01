@@ -112,8 +112,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=INFO
-      - FILTER_BY_FIELD="title"
-      - FILTER_BY_VALUES=["distributed"]
       - BOOK_INPUT_QUEUE=["books_decade_90",""]
       - REVIEW_INPUT_QUEUE=["reviews_q","reviews"]
       - OUTPUT_QUEUES=["reviews_1990_1999"]

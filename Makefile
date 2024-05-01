@@ -31,6 +31,19 @@ docker-compose-logs:
 	docker compose -f docker-compose.yaml logs -f
 .PHONY: docker-compose-logs
 
+docker-compose-up-gen: docker-image
+	docker compose -f docker-compose-gen.yaml up -d --build
+.PHONY: docker-compose-up-gen
+
+docker-compose-down-gen:
+	docker compose -f docker-compose-gen.yaml stop -t 1
+	docker compose -f docker-compose-gen.yaml down
+.PHONY: docker-compose-down-gen
+
+docker-compose-logs-gen:
+	docker compose -f docker-compose-gen.yaml logs -f
+.PHONY: docker-compose-logs-gen
+
 rabbitmq-up:
 	docker compose -f docker-compose-rabbit.yaml up -d
 .PHONY: rabbitmq-up
