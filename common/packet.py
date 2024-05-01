@@ -17,7 +17,7 @@ class Packet(ABC):
         pass
 
     def encode(self) -> str:
-        return json.dumps([self.packet_type().value, self.payload()])
+        return json.dumps([self.packet_type.value, self.payload])
 
     @staticmethod
     @abstractmethod

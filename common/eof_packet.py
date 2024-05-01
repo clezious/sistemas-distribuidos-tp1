@@ -6,9 +6,11 @@ class EOFPacket(Packet):
     def __init__(self):
         pass
 
+    @property
     def packet_type(self):
         return PacketType.EOF
 
+    @property
     def payload(self):
         return []
 

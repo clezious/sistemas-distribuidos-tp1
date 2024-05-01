@@ -35,9 +35,11 @@ class Book(Packet):
         categories = Book.extract_categories(fields[8].strip())
         return Book(title, description, authors, publisher, year, categories)
 
+    @property
     def packet_type(self):
         return PacketType.BOOK
 
+    @property
     def payload(self):
         return [self.title,
                 self.description,
