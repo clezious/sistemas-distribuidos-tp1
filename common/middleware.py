@@ -2,6 +2,11 @@ import logging
 from typing import Callable
 import pika
 
+from common.packet import Packet
+from common.packet_type import PacketType
+from common.packet_decoder import PacketDecoder
+from common.eof_packet import EOFPacket
+
 RABBITMQ_HOST = 'rabbitmq'
 RABBITMQ_PORT = 5672
 
@@ -25,13 +30,7 @@ class Middleware:
 
     def _init_input(self):
         for queue, exchange in self.input_queues.items():
-            self.channel.queue_declare(queue=queue)
-            if exchange:
-                self.channel.exchange_declare(
-                    exchange=exchange, exchange_type='fanout')
-                self.channel.queue_bind(exchange=exchange, queue=queue)
-            self.channel.basic_consume(
-                queue=queue, on_message_callback=self.callback, auto_ack=True)
+            self.add_input_queue(queue, self.callback, exchange=exchange)
 
     def _init_output(self):
         for queue in self.output_queues:
@@ -68,6 +67,7 @@ class Middleware:
     def add_input_queue(self,
                         input_queue: str,
                         callback: Callable,
+                        eof_callback: Callable = None,
                         exchange: str = "",
                         exchange_type: str = "fanout",
                         auto_ack=True):
@@ -77,9 +77,42 @@ class Middleware:
                 exchange=exchange, exchange_type=exchange_type)
             self.channel.queue_bind(exchange=exchange, queue=input_queue)
 
+        wrapped_callback = self._callback_wrapper(callback,
+                                                  eof_callback,
+                                                  auto_ack)
         self.channel.basic_consume(
-            queue=input_queue, on_message_callback=callback, auto_ack=auto_ack)
+            queue=input_queue,
+            on_message_callback=wrapped_callback,
+            auto_ack=auto_ack)
         self.input_queues[input_queue] = exchange
+
+    def _callback_wrapper(self,
+                          callback: Callable[[Packet], any],
+                          eof_callback: Callable[[EOFPacket], any],
+                          auto_ack: bool
+                          ):
+
+        def wrapper(ch, method, properties, body):
+            packet = PacketDecoder.decode(body)
+            should_ack = True
+
+            if packet.packet_type() == PacketType.EOF:
+                logging.info("Received EOF packet")
+                # TODO: Check this
+                self.send(packet.encode())
+                if eof_callback:
+                    eof_callback(packet)
+            else:
+                # Check if auto ack is on
+                should_ack = callback(packet)
+
+            if not auto_ack:
+                if should_ack:
+                    self.ack(method.delivery_tag)
+                else:
+                    self.nack(method.delivery_tag)
+
+        return wrapper
 
     def ack(self, delivery_tag):
         self.channel.basic_ack(delivery_tag=delivery_tag)

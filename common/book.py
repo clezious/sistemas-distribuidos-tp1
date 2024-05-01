@@ -2,10 +2,13 @@ import json
 import csv
 import re
 
+from common.packet_type import PacketType
+from common.packet import Packet
+
 YEAR_REGEX = re.compile('[^\d]*(\d{4})[^\d]*')
 
 
-class Book:
+class Book(Packet):
     def __init__(self,
                  title: str,
                  description: str,
@@ -32,6 +35,17 @@ class Book:
         categories = Book.extract_categories(fields[8].strip())
         return Book(title, description, authors, publisher, year, categories)
 
+    def packet_type(self):
+        return PacketType.BOOK
+
+    def payload(self):
+        return [self.title,
+                self.description,
+                self.authors,
+                self.publisher,
+                self.year,
+                self.categories]
+
     @staticmethod
     def extract_year(x: str):
         if x:
@@ -48,13 +62,8 @@ class Book:
         except json.JSONDecodeError:
             return []
 
-    def encode(self):
-        return json.dumps([self.title, self.description, self.authors,
-                           self.publisher, self.year, self.categories])
-
     @staticmethod
-    def decode(data: str):
-        fields = json.loads(data)
+    def decode(fields: list[str]):
         title = fields[0]
         description = fields[1]
         authors = fields[2]
@@ -87,3 +96,7 @@ class Book:
                     return True
 
         return False
+
+
+b = Book('title', 'description', ['author1', 'author2'], 'publisher', 2021, [
+         'category1', 'category2'])

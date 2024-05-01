@@ -1,33 +1,28 @@
-from enum import Enum
+from abc import ABC, abstractmethod
 import json
 
-from common.book import Book
-from common.review import Review
+from common.packet_type import PacketType
 
 
-class PacketType(Enum):
-    EOF = 0
-    BOOK = 1
-    REVIEW = 2
+class Packet(ABC):
 
+    @property
+    @abstractmethod
+    def packet_type(self) -> PacketType:
+        pass
 
-class Packet:
-    def __init__(self, type: PacketType, payload):
-        self.packet_type = type
-        self.payload = payload
+    @property
+    @abstractmethod
+    def payload(self) -> list:
+        pass
 
-    def encode(self):
-        encoded_payload = self.payload.encode() if self.payload else None
-        return json.dumps([self.packet_type.value, encoded_payload])
+    def encode(self) -> str:
+        return json.dumps([self.packet_type().value, self.payload()])
 
     @staticmethod
-    def decode(data):
-        fields = json.loads(data)
-        packet_type = PacketType(fields[0])
-        payload = None
-        if packet_type == PacketType.BOOK:
-            payload = Book.decode(fields[1])
-        elif packet_type == PacketType.REVIEW:
-            payload = Review.decode(fields[1])
+    @abstractmethod
+    def decode(data: str) -> 'Packet':
+        pass
 
-        return Packet(packet_type, payload)
+    def __str__(self):
+        return self.encode()

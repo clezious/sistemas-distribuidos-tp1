@@ -1,12 +1,20 @@
 import csv
-import json
+
+from common.packet_type import PacketType
+from common.packet import Packet
 
 
-class Review:
+class Review(Packet):
     def __init__(self, book_title: str, score, text):
         self.book_title = book_title
         self.score = score
         self.text = text
+
+    def packet_type(self):
+        return PacketType.REVIEW
+    
+    def payload(self):
+        return [self.book_title, self.score, self.text]
 
     @staticmethod
     def from_csv_row(csv_row: str):
@@ -18,12 +26,8 @@ class Review:
 
         return Review(title, score, text)
 
-    def encode(self):
-        return json.dumps([self.book_title, self.score, self.text])
-
     @staticmethod
-    def decode(data: str):
-        fields = json.loads(data)
+    def decode(fields: list[str]):
         title = fields[0]
         score = fields[1]
         text = fields[2]
