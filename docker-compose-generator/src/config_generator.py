@@ -151,16 +151,18 @@ class ConfigGenerator:
 
     def _generate_author_decades_counters(self):
         replicas = self.config_params["author_decades_counter"]
-        self._generate_service(
-            "author_decades_counter",
-            "author_decades_counter:latest",
-            [],
-            ["test_net"],
-            input_queues={"books_by_authors": ""},
-            output_queues=["query2_result"],
-            output_exchanges=[],
-            replicas=replicas
-        )
+        for instance in range(replicas):
+            suffix = "" if replicas == 1 else f"_{instance}"
+            self._generate_service(
+                f"author_decades_counter{suffix}",
+                "author_decades_counter:latest",
+                [],
+                ["test_net"],
+                input_queues={f"books_by_authors{suffix}": ""},
+                output_queues=["query2_result"],
+                output_exchanges=[],
+                replicas=1
+            )
 
     def _generate_review_filters_by_book_year_1990_1999(self):
         replicas = self.config_params["review_filter_by_book_year_1990_1999"]
@@ -193,7 +195,7 @@ class ConfigGenerator:
         self._generate_service(
             "book_router_by_author",
             "router:latest",
-            ['HASH_BY_FIELD="authors"', 'N_INSTANCES=1'],
+            ['HASH_BY_FIELD="authors"', f'N_INSTANCES={self.config_params["author_decades_counter"]}'],
             ["test_net"],
             input_queues={"book_router_by_author": "books"},
             output_queues=["books_by_authors"],
