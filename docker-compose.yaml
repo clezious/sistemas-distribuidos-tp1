@@ -121,6 +121,18 @@ services:
     networks: 
       - test_net
 
+  review_stats_service:
+    image: review_stats_service:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=INFO
+      - INPUT_QUEUES={"reviews_1990_1999":""}
+      - REQUIRED_REVIEWS_BOOKS_OUTPUT_QUEUE="query3_result"
+      - TOP_BOOKS_OUTPUT_QUEUE="top_10_books"
+      - OUTPUT_EXCHANGES=[]
+    networks: 
+      - test_net
+
 networks:
   test_net:
     ipam:
