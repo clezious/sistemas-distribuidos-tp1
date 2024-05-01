@@ -27,7 +27,7 @@ class Router:
     def hash_and_route(self, book: Book, field_value):
         instance_id = hash(field_value) % (self.n_instances)
         self.middleware.send(book.encode(), instance_id)
-        print(" [x] Routed Book to instance %d" % instance_id)
+        print(f" [x] Routed Book to instance {instance_id} of {self.n_instances}")
 
     def route_by_field_hash(self, book: Book):
         print(f" [x] Received {book}")

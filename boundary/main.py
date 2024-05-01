@@ -1,23 +1,9 @@
 from configparser import ConfigParser
 import json
 import os
-import logging
-from boundary import Boundary
-from boundary_type import BoundaryType
-
-
-def initialize_log(logging_level):
-    """
-    Python custom logging initialization
-
-    Current timestamp is added to be able to identify in docker
-    compose logs the date when the log has arrived
-    """
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging_level,
-        datefmt='%Y-%m-%d %H:%M:%S',
-    )
+from src.boundary import Boundary
+from src.boundary_type import BoundaryType
+from common.logs import initialize_log
 
 
 def initialize_config():

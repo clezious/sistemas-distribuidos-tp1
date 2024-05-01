@@ -195,7 +195,8 @@ class ConfigGenerator:
         self._generate_service(
             "book_router_by_author",
             "router:latest",
-            ['HASH_BY_FIELD="authors"', f'N_INSTANCES={self.config_params["author_decades_counter"]}'],
+            ['HASH_BY_FIELD=authors',
+             f'N_INSTANCES={self.config_params["author_decades_counter"]}'],
             ["test_net"],
             input_queues={"book_router_by_author": "books"},
             output_queues=["books_by_authors"],
