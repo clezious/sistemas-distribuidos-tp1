@@ -47,14 +47,20 @@ class Middleware:
 
     def send(self, data: str):
         for queue in self.output_queues:
-            self.channel.basic_publish(
-                exchange='', routing_key=queue, body=data)
-            logging.debug("Sent to queue %s: %s", queue, data)
+            self.send_to_queue(queue, data)
 
         for exchange in self.output_exchanges:
-            self.channel.basic_publish(
-                exchange=exchange, routing_key='', body=data)
-            logging.debug("Sent to exchange %s: %s", exchange, data)
+            self.send_to_exchange(exchange, data)
+
+    def send_to_queue(self, queue: str, data: str):
+        self.channel.basic_publish(
+            exchange='', routing_key=queue, body=data)
+        logging.debug("Sent to queue %s: %s", queue, data)
+
+    def send_to_exchange(self, exchange: str, data: str):
+        self.channel.basic_publish(
+            exchange=exchange, routing_key='', body=data)
+        logging.debug("Sent to exchange %s: %s", exchange, data)
 
     def shutdown(self):
         if self.input_queues:
@@ -70,7 +76,8 @@ class Middleware:
                         eof_callback: Callable = None,
                         exchange: str = "",
                         exchange_type: str = "fanout",
-                        auto_ack=True):
+                        auto_ack=True,
+                        should_propagate_eof=True):
         self.channel.queue_declare(queue=input_queue)
         if exchange:
             self.channel.exchange_declare(
@@ -79,7 +86,8 @@ class Middleware:
 
         wrapped_callback = self._callback_wrapper(callback,
                                                   eof_callback,
-                                                  auto_ack)
+                                                  auto_ack,
+                                                  should_propagate_eof)
         self.channel.basic_consume(
             queue=input_queue,
             on_message_callback=wrapped_callback,
@@ -89,19 +97,23 @@ class Middleware:
     def _callback_wrapper(self,
                           callback: Callable[[Packet], any],
                           eof_callback: Callable[[EOFPacket], any],
-                          auto_ack: bool
+                          auto_ack: bool,
+                          should_propagate_eof: bool
                           ):
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
             should_ack = True
 
-            if packet.packet_type() == PacketType.EOF:
+            if packet.packet_type == PacketType.EOF:
                 logging.info("Received EOF packet")
-                # TODO: Check this
-                self.send(packet.encode())
+
                 if eof_callback:
                     eof_callback(packet)
+
+                # TODO: Check this
+                if should_propagate_eof:
+                    self.send(packet.encode())
             else:
                 # Check if auto ack is on
                 should_ack = callback(packet)

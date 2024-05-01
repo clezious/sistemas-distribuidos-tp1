@@ -3,6 +3,7 @@ from common.book import Book
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.review import Review
+from common.review_and_author import ReviewAndAuthor
 
 
 class ReviewFilter:
@@ -17,7 +18,8 @@ class ReviewFilter:
             book_input_queue[0],
             self._add_book,
             self._set_books_finished,
-            book_input_queue[1])
+            book_input_queue[1],
+            should_propagate_eof=False)
         self.middleware.add_input_queue(
             review_input_queue[0],
             self._filter_review,
@@ -53,7 +55,13 @@ class ReviewFilter:
             return False
 
         if review.book_title in self.books:
-            self.middleware.send(review.encode())
+            review_and_author = ReviewAndAuthor(
+                review.book_title,
+                review.score,
+                review.text,
+                self.books[review.book_title]
+            )
+            self.middleware.send(review_and_author.encode())
             logging.debug("Filter passed - review for: %s", review.book_title)
 
         return True
