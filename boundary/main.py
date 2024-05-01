@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+import json
 import os
 import logging
 from boundary import Boundary
@@ -43,7 +44,8 @@ def initialize_config():
                       config["DEFAULT"]["SERVER_LISTEN_BACKLOG"]))
         config_params["logging_level"] = os.getenv(
             'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
-        config_params["output_exchange"] = os.getenv('OUTPUT_EXCHANGE')
+        config_params["output_exchange"] = json.loads(
+            os.getenv('OUTPUT_EXCHANGES'))[0]
         config_params["boundary_type"] = os.getenv('BOUNDARY_TYPE')
     except KeyError as e:
         raise e

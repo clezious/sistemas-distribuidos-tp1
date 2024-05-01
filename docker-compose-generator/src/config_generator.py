@@ -1,11 +1,22 @@
+import json
+
+
 class ConfigGenerator:
     def __init__(self, config_params):
         self.config_params = config_params
         self.config = {
+            "name": "tp1",
             "services": {},
             "networks": {
-                "network_1": {
-                    "external": True
+                "test_net": {
+                    "ipam": {
+                        "driver": "default",
+                        "config": [
+                            {
+                                "subnet": "172.25.125.0/24"
+                            }
+                        ]
+                    }
                 }
             }
         }
@@ -31,22 +42,22 @@ class ConfigGenerator:
                           networks: list[str],
                           volumes: list[str] = [],
                           depends_on: list[str] = [],
-                          input_queues: list[tuple[str, str]] = None,
+                          input_queues: dict[str, str] = None,
                           output_queues: list[str] = None,
                           output_exchanges: list[str] = None,
                           replicas: int = 1):
         default_environment = ["PYTHONUNBUFFERED=1", "LOGGING_LEVEL=INFO"]
         default_environment.extend(environment)
         if input_queues:
-            input_queues = str(dict(input_queues))
+            input_queues = json.dumps(input_queues, separators=(',', ':'))
             default_environment.append(f"INPUT_QUEUES={input_queues}")
 
         if output_queues:
-            output_queues = str(output_queues)
+            output_queues = json.dumps(output_queues)
             default_environment.append(f"OUTPUT_QUEUES={output_queues}")
 
-        if output_exchanges:
-            output_exchanges = str(output_exchanges)
+        if output_exchanges is not None:
+            output_exchanges = json.dumps(output_exchanges)
             default_environment.append(
                 f"OUTPUT_EXCHANGES={output_exchanges}")
 
@@ -76,9 +87,10 @@ class ConfigGenerator:
             "book_filter_by_category_computers",
             "book_filter:latest",
             ['FILTER_BY_FIELD="categories"', 'FILTER_BY_VALUES=["Computers"]'],
-            ["network_1"],
-            input_queues=[("books_filter_by_category_computers", "books")],
+            ["test_net"],
+            input_queues={"books_filter_by_category_computers": "books"},
             output_queues=["computers_books"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -88,9 +100,10 @@ class ConfigGenerator:
             "book_filter_by_category_fiction",
             "book_filter:latest",
             ['FILTER_BY_FIELD="categories"', 'FILTER_BY_VALUES=["Fiction"]'],
-            ["network_1"],
-            input_queues=[("books_filter_by_category_fiction", "books")],
+            ["test_net"],
+            input_queues={"books_filter_by_category_fiction": "books"},
             output_queues=["fiction_books"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -100,10 +113,11 @@ class ConfigGenerator:
             "book_filter_by_year_2000_2023",
             "book_filter:latest",
             ['FILTER_BY_FIELD="year"',
-             'FILTER_BY_VALUES=["2000,2023"]'],
-            ["network_1"],
-            input_queues=[("computers_books", "")],
+             'FILTER_BY_VALUES=[2000,2023]'],
+            ["test_net"],
+            input_queues={"computers_books": ""},
             output_queues=["2000_2023_computers_books"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -113,10 +127,11 @@ class ConfigGenerator:
             "book_filter_by_year_1990_1999",
             "book_filter:latest",
             ['FILTER_BY_FIELD="year"',
-             'FILTER_BY_VALUES=["1990,1999"]'],
-            ["network_1"],
-            input_queues=[("book_filter_by_year_1990_1999", "books")],
+             'FILTER_BY_VALUES=[1990,1999]'],
+            ["test_net"],
+            input_queues={"book_filter_by_year_1990_1999": "books"},
             output_queues=["1990_1999_books"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -126,9 +141,10 @@ class ConfigGenerator:
             "book_filter_by_title_distributed",
             "book_filter:latest",
             ['FILTER_BY_FIELD="title"', 'FILTER_BY_VALUES=["Distributed"]'],
-            ["network_1"],
-            input_queues=[("book_filter_by_title_distributed", "books")],
+            ["test_net"],
+            input_queues={"book_filter_by_title_distributed": "books"},
             output_queues=["distributed_books"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -138,9 +154,10 @@ class ConfigGenerator:
             "author_decades_counter",
             "author_decades_counter:latest",
             [],
-            ["network_1"],
-            input_queues=[("author_decades_counter", "books")],
+            ["test_net"],
+            input_queues={"author_decades_counter": "books"},
             output_queues=["query2_result"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -151,8 +168,9 @@ class ConfigGenerator:
             "review_filter:latest",
             ['BOOK_INPUT_QUEUE=["books_decade_90",""]',
              'REVIEW_INPUT_QUEUE=["reviews_q","reviews"]'],
-            ["network_1"],
+            ["test_net"],
             output_queues=["1990_1999_reviews"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -163,8 +181,9 @@ class ConfigGenerator:
             "review_filter:latest",
             ['BOOK_INPUT_QUEUE=["books_fiction",""]',
              'REVIEW_INPUT_QUEUE=["reviews_q","reviews"]'],
-            ["network_1"],
+            ["test_net"],
             output_queues=["fiction_reviews"],
+            output_exchanges=[],
             replicas=replicas
         )
 
@@ -176,7 +195,7 @@ class ConfigGenerator:
              "BOOK_BOUNDARY_IP=book_boundary",
              "REVIEW_BOUNDARY_PORT=12345",
              "REVIEW_BOUNDARY_IP=review_boundary"],
-            ["network_1"],
+            ["test_net"],
             ["./datasets:/datasets"],
             depends_on=["book_boundary", "review_boundary"])
 
@@ -189,7 +208,7 @@ class ConfigGenerator:
             [f"BOUNDARY_TYPE={boundary_type}",
              "SERVER_PORT=12345",
              "SERVER_LISTEN_BACKLOG=1"],
-            ["network_1"],
+            ["test_net"],
             output_exchanges=output_exchanges
         )
 

@@ -41,6 +41,8 @@ def main():
     with open("docker-compose-gen.yaml", "w") as f:
         yaml.dump(docker_compose_config, f,
                   sort_keys=False, default_flow_style=False)
+        
+    print("Generated docker-compose-gen.yaml")
 
 
 if __name__ == "__main__":
