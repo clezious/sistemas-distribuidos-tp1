@@ -211,17 +211,3 @@ class ConfigGenerator:
             ["test_net"],
             output_exchanges=output_exchanges
         )
-
-
-g = ConfigGenerator({
-    "book_filter_by_category_computers": 1,
-    "book_filter_by_category_fiction": 3,
-    "book_filter_by_year_2000_2023": 4,
-    "book_filter_by_year_1990_1999": 2,
-    "book_filter_by_title_distributed": 1,
-    "author_decades_counter": 3,
-    "review_filter_by_book_year_1990_1999": 1,
-    "review_filter_by_book_category_fiction": 6
-})
-
-g.generate()
