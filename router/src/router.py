@@ -1,3 +1,4 @@
+import logging
 from common.book import Book
 from common.middleware import Middleware
 
@@ -27,10 +28,10 @@ class Router:
     def hash_and_route(self, book: Book, field_value):
         instance_id = hash(field_value) % (self.n_instances)
         self.middleware.send(book.encode(), instance_id)
-        print(" [x] Routed Book to instance %d" % instance_id)
+        logging.debug(" [x] Routed Book to instance %d" % instance_id)
 
     def route_by_field_hash(self, book: Book):
-        print(f" [x] Received {book}")
+        logging.debug(f" [x] Received {book}")
         field_value = book.get(self.hash_by_field)
         # if isinstance(field_value, list):
         #     for value in field_value:

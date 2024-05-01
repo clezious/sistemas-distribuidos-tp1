@@ -14,11 +14,9 @@ class ReviewStatsService:
     def __init__(self,
                  input_queues: dict[str, str],
                  required_reviews_books_queue: str,
-                 top_books_queue: str,
-                 output_exchanges: list):
+                 top_books_queue: str):
         self.middleware = Middleware(
-            output_queues=[required_reviews_books_queue, top_books_queue],
-            output_exchanges=output_exchanges)
+            output_queues=[required_reviews_books_queue, top_books_queue])
         self.book_reviews = {}
         self.required_reviews_books_queue = required_reviews_books_queue
         self.top_books_queue = top_books_queue

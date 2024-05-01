@@ -25,12 +25,10 @@ def main():
     required_reviews_books_output_queue = json.loads(
         os.getenv('REQUIRED_REVIEWS_BOOKS_OUTPUT_QUEUE'))
     top_books_output_queue = json.loads(os.getenv('TOP_BOOKS_OUTPUT_QUEUE'))
-    output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES")) or []
 
     stats_service = ReviewStatsService(input_queues,
                                        required_reviews_books_output_queue,
-                                       top_books_output_queue,
-                                       output_exchanges)
+                                       top_books_output_queue)
     logging.info("Review stats service is starting")
     stats_service.start()
 

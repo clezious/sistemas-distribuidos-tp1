@@ -34,6 +34,7 @@ class ConfigGenerator:
         self._generate_review_filters_by_book_year_1990_1999()
         self._generate_review_filters_by_book_category_fiction()
         self._generate_book_router_by_author()
+        self._generate_review_stats_service()
         return self.config
 
     def _generate_service(self,
@@ -224,4 +225,16 @@ class ConfigGenerator:
              "SERVER_LISTEN_BACKLOG=1"],
             ["test_net"],
             output_exchanges=output_exchanges
+        )
+
+    def _generate_review_stats_service(self):
+        replicas = self.config_params["review_stats_service"]
+        self._generate_service(
+            "review_stats_service",
+            "review_stats_service:latest",
+            ['REQUIRED_REVIEWS_BOOKS_OUTPUT_QUEUE="query3_result"',
+             'TOP_BOOKS_OUTPUT_QUEUE="top_10_books"'],
+            ["test_net"],
+            input_queues={"reviews_1990_1999": ""},
+            replicas=replicas
         )
