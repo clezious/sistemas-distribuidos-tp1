@@ -142,8 +142,8 @@ class ConfigGenerator:
             "book_filter:latest",
             ['FILTER_BY_FIELD="title"', 'FILTER_BY_VALUES=["Distributed"]'],
             ["test_net"],
-            input_queues={"book_filter_by_title_distributed": "books"},
-            output_queues=["distributed_books"],
+            input_queues={"2000_2023_computers_books": ""},
+            output_queues=["query1_result"],
             output_exchanges=[],
             replicas=replicas
         )
@@ -166,8 +166,8 @@ class ConfigGenerator:
         self._generate_service(
             "review_filter_by_book_year_1990_1999",
             "review_filter:latest",
-            ['BOOK_INPUT_QUEUE=["books_decade_90",""]',
-             'REVIEW_INPUT_QUEUE=["reviews_q","reviews"]'],
+            ['BOOK_INPUT_QUEUE=["1990_1999_books",""]',
+             'REVIEW_INPUT_QUEUE=["1990_1999_reviews_filter","reviews"]'],
             ["test_net"],
             output_queues=["1990_1999_reviews"],
             output_exchanges=[],
@@ -179,8 +179,8 @@ class ConfigGenerator:
         self._generate_service(
             "review_filter_by_book_category_fiction",
             "review_filter:latest",
-            ['BOOK_INPUT_QUEUE=["books_fiction",""]',
-             'REVIEW_INPUT_QUEUE=["reviews_q","reviews"]'],
+            ['BOOK_INPUT_QUEUE=["fiction_books",""]',
+             'REVIEW_INPUT_QUEUE=["fiction_reviews_filter","reviews"]'],
             ["test_net"],
             output_queues=["fiction_reviews"],
             output_exchanges=[],
