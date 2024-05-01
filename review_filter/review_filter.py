@@ -1,6 +1,8 @@
 import logging
+from common.book import Book
+from common.eof_packet import EOFPacket
 from common.middleware import Middleware
-from common.packet import Packet, PacketType
+from common.review import Review
 
 
 class ReviewFilter:
@@ -14,10 +16,12 @@ class ReviewFilter:
         self.middleware.add_input_queue(
             book_input_queue[0],
             self._add_book,
+            self._set_books_finished,
             book_input_queue[1])
         self.middleware.add_input_queue(
             review_input_queue[0],
             self._filter_review,
+            self._reset_filter,
             review_input_queue[1],
             auto_ack=False)
         self.books_finished = False
@@ -30,39 +34,26 @@ class ReviewFilter:
         logging.info("Graceful shutdown")
         self.middleware.shutdown()
 
-    def _add_book(self, ch, method, properties, body):
-        packet = Packet.decode(body)
-        if packet.packet_type == PacketType.EOF:
-            self.books_finished = True
-            logging.info("Received books EOF")
-            return
+    def _set_books_finished(self, eof_packet: EOFPacket):
+        self.books_finished = True
+        logging.info("Received books EOF")
 
-        book = packet.payload
+    def _add_book(self, book: Book):
         self.books[book.title] = book.authors
         logging.debug("Received and saved book: %s", book.title)
 
-    def _reset_filter(self):
+    def _reset_filter(self, eof_packet: EOFPacket):
         self.books_finished = False
         self.books = {}
         logging.info("Filter reset")
 
-    def _filter_review(self, ch, method, properties, body):
-        packet = Packet.decode(body)
-        if packet.packet_type == PacketType.EOF:
-            logging.info("Received reviews EOF")
-            self.middleware.ack(method.delivery_tag)
-            self._reset_filter()
-            # TODO: Send EOF to output queues
-            return
-
+    def _filter_review(self, review: Review):
         if not self.books_finished:
             logging.debug("Received review but didnt get books EOF")
-            self.middleware.nack(method.delivery_tag)
-            return
+            return False
 
-        review = packet.payload
         if review.book_title in self.books:
-            self.middleware.send(body)
-            logging.info("Filter passed - review for: %s", review.book_title)
+            self.middleware.send(review.encode())
+            logging.debug("Filter passed - review for: %s", review.book_title)
 
-        self.middleware.ack(method.delivery_tag)
+        return True

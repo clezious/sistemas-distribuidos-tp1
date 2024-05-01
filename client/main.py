@@ -65,7 +65,7 @@ def main():
     logging.info("Sent all books")
 
     review_client = Client(
-        "../datasets/books_rating_test.csv",
+        "../datasets/books_rating.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"])
     review_client.run()

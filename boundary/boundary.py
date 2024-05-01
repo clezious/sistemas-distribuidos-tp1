@@ -2,9 +2,9 @@ import logging
 import signal
 import socket
 from boundary_type import BoundaryType
+from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.book import Book
-from common.packet import Packet, PacketType
 from common.review import Review
 
 MAX_READ_SIZE = 1024
@@ -39,20 +39,16 @@ class Boundary():
             try:
                 data = receive_line(client_socket).decode().strip()
                 logging.debug("Received line: %s", data)
-                payload = None
-                packet_type = None
+                packet = None
                 if self.boundary_type == BoundaryType.BOOK:
-                    packet_type = PacketType.BOOK
-                    payload = Book.from_csv_row(data)
+                    packet = Book.from_csv_row(data)
                 elif self.boundary_type == BoundaryType.REVIEW:
-                    packet_type = PacketType.REVIEW
-                    payload = Review.from_csv_row(data)
+                    packet = Review.from_csv_row(data)
 
-                packet = Packet(packet_type, payload)
                 self.broker_connection.send(packet.encode())
             except EOFError:
                 logging.info("EOF reached")
-                eof_packet = Packet(PacketType.EOF, None)
+                eof_packet = EOFPacket()
                 self.broker_connection.send(eof_packet.encode())
                 break
             except ConnectionResetError:
