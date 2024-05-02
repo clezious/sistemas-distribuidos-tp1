@@ -8,3 +8,4 @@ class PacketType(Enum):
     BOOK_STATS = 3
     REVIEW_AND_AUTHOR = 4
     RESULT = 5
+    AUTHORS = 6

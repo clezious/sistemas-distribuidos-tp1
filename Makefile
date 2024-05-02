@@ -38,7 +38,7 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 docker-compose-up-gen: docker-image
-	python ./docker-compose-generator/main.py
+	python3 ./docker-compose-generator/main.py
 	docker compose -f docker-compose-gen.yaml up -d --build
 .PHONY: docker-compose-up-gen
 

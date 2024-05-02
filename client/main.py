@@ -55,7 +55,7 @@ def main():
     logging.info("Sent all books")
 
     review_client = ClientSender(
-        "../datasets/books_rating.csv",
+        "../datasets/empty.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"])
     review_client.run()
@@ -66,6 +66,7 @@ def main():
         config_params["result_boundary_port"])
     result_client.run()
     logging.info("Received all results")
+
 
 if __name__ == "__main__":
     main()

@@ -120,7 +120,8 @@ class Middleware:
                 logging.info("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
-                self.ack(method.delivery_tag)
+                if not auto_ack:
+                    self.ack(method.delivery_tag)
             else:
                 # Check if auto ack is on
                 should_ack = callback(packet)
