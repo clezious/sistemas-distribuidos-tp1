@@ -31,20 +31,20 @@ class SentimentAggregator:
         stats: list[BookStats] = []
         for title, book_stats in self.books_stats.items():
             average_score = book_stats["total_score"] / book_stats["total_reviews"]
-            stats.append(BookStats(title=title, average_score=average_score))
+            stats.append(BookStats(title, average_score))
 
         percentile = heapq.nlargest(
             int(len(stats) * (1 - PERCENTILE / 100)),
             stats,
-            key=lambda x: x.average_score
+            key=lambda x: x.score
         )
 
         for book_stats in percentile:
-            self.middleware.send(book_stats)
+            self.middleware.send(book_stats.encode())
             logging.debug("Sent book stats: %s", book_stats)
 
         self.middleware.send(EOFPacket().encode())
-        self.books_stats = []
+        self.books_stats = {}
 
     def _save_stats(self, book_stats: BookStats):
         if book_stats.title not in self.books_stats:
