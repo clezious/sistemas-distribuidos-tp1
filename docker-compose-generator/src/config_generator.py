@@ -40,7 +40,7 @@ class ConfigGenerator:
     def _generate_routers(self):
         self._generate_router(
             "book_router_by_author",
-            "author",
+            "authors",
             self.config_params["book_router_by_author"],
             self.config_params["author_decades_counter"],
             {"book_router_by_author": "books"},
@@ -256,7 +256,7 @@ class ConfigGenerator:
             name,
             "router:latest",
             [f'HASH_BY_FIELD={field_to_hash}',
-             f'N_INSTANCES = {target_instances}'],
+             f'N_INSTANCES={target_instances}'],
             ["test_net"],
             input_queues=input_queues,
             output_queues=output_queues,
