@@ -12,10 +12,10 @@ class Book(Packet):
     def __init__(self,
                  title: str,
                  description: str,
-                 authors: list[str],
+                 authors: str,
                  publisher: str,
                  year: int,
-                 categories: list):
+                 categories: str):
         self.title = title
         self.description = description
         self.authors = authors
@@ -81,29 +81,3 @@ class Book(Packet):
 
     def get(self, field: str):
         return getattr(self, field, None)
-
-    def filter_by(self, field: str, values: list):
-        if field == 'title':
-            for str in values:
-                if str.upper() in self.title.upper():
-                    return True
-
-        if field == 'authors':
-            for author in self.authors:
-                if author in values:
-                    return True
-
-        if field == 'year' and self.year is not None:
-            if self.year >= values[0] and self.year <= values[1]:
-                return True
-
-        if field == 'categories' and self.categories is not None:
-            for category in self.categories:
-                if category in values:
-                    return True
-
-        return False
-
-
-b = Book('title', 'description', ['author1', 'author2'], 'publisher', 2021, [
-         'category1', 'category2'])

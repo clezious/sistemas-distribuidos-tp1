@@ -1,7 +1,7 @@
 import logging
 import signal
 import socket
-from boundary_type import BoundaryType
+from .boundary_type import BoundaryType
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.book import Book
@@ -60,7 +60,7 @@ class Boundary():
         raise NotImplementedError("Graceful shutdown not implemented")
 
 
-def recieve_exact(s: socket.socket, length: int) -> bytes:
+def receive_exact(s: socket.socket, length: int) -> bytes:
     data = b''
     while len(data) < length:
         bytes_remaining = length - len(data)
@@ -72,7 +72,7 @@ def recieve_exact(s: socket.socket, length: int) -> bytes:
 
 
 def receive_line(s: socket.socket) -> bytes:
-    length_as_bytes = recieve_exact(s, LENGTH_BYTES)
+    length_as_bytes = receive_exact(s, LENGTH_BYTES)
     length = int.from_bytes(length_as_bytes, byteorder='big')
-    data = recieve_exact(s, length)
+    data = receive_exact(s, length)
     return data
