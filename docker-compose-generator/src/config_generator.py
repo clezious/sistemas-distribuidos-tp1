@@ -35,6 +35,7 @@ class ConfigGenerator:
         self._generate_review_filters_by_book_category_fiction()
         self._generate_routers()
         self._generate_review_stats_service()
+        self._generate_review_mean_aggregator()
         return self.config
 
     def _generate_routers(self):
@@ -299,4 +300,14 @@ class ConfigGenerator:
             ["test_net"],
             input_queues={"1990_1999_reviews_stats_router_by_title": ""},
             instances=instances
+        )
+
+    def _generate_review_mean_aggregator(self):
+        self._generate_service(
+            "review_mean_aggregator",
+            "review_mean_aggregator:latest",
+            [],
+            ["test_net"],
+            input_queues={"top_10_books": ""},
+            output_queues=["query4_result"],
         )
