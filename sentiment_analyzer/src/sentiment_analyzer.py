@@ -35,8 +35,8 @@ class SentimentAnalyzer:
         sentiment = TextBlob(review.text).sentiment.polarity
         stats = BookStats(review.book_title, sentiment)
         self.middleware.send(stats.encode())
-        logging.debug("Review %s - Sentiment score: %f",
-                      review.book_title, sentiment)
+        logging.info("Review %s - Sentiment score: %f",
+                     review.book_title, sentiment)
 
     def _handle_eof(self, eof_packet: EOFPacket):
         if self.instance_id not in eof_packet.ack_instances:

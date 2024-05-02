@@ -38,7 +38,7 @@ class Boundary():
         while True:
             try:
                 data = receive_line(client_socket).decode().strip()
-                logging.debug("Received line: %s", data)
+                logging.info("Received line: %s", data)
                 packet = None
                 if self.boundary_type == BoundaryType.BOOK:
                     packet = Book.from_csv_row(data)

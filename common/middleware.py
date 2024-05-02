@@ -69,11 +69,11 @@ class Middleware:
         for exchange in self.output_exchanges:
             self.channel.basic_publish(
                 exchange=exchange, routing_key='', body=data)
-            logging.debug("Sent to exchange %s: %s", exchange, data)
+            logging.info("Sent to exchange %s: %s", exchange, data)
 
     def send_to_queue(self, queue: str, data: str):
         self.channel.basic_publish(exchange='', routing_key=queue, body=data)
-        logging.debug("Sent to queue %s: %s", queue, data)
+        logging.info("Sent to queue %s: %s", queue, data)
 
     def shutdown(self):
         if self.input_queues:
