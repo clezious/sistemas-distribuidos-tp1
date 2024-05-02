@@ -37,6 +37,7 @@ class ConfigGenerator:
         self._generate_review_stats_service()
         self._generate_sentiment_analyzer()
         self._generate_sentiment_aggregator()
+        self._generate_review_mean_aggregator()
         return self.config
 
     def _generate_routers(self):
@@ -323,4 +324,14 @@ class ConfigGenerator:
             ["test_net"],
             input_queues={"fiction_reviews_sentiment_scores": ""},
             output_queues=["query5_result"],
+        )
+
+    def _generate_review_mean_aggregator(self):
+        self._generate_service(
+            "review_mean_aggregator",
+            "review_mean_aggregator:latest",
+            [],
+            ["test_net"],
+            input_queues={"top_10_books": ""},
+            output_queues=["query4_result"],
         )

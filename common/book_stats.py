@@ -23,3 +23,12 @@ class BookStats(Packet):
         title = fields[0]
         average_score = fields[1]
         return BookStats(title, average_score)
+    
+    def __lt__(self, other: 'BookStats'):
+        return self.average_score < other.average_score
+    
+    def __eq__(self, other: 'BookStats'):
+        return self.average_score == other.average_score
+    
+    def __gt__(self, other: 'BookStats'):
+        return self.average_score > other.average_score
