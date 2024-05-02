@@ -15,25 +15,30 @@ class Middleware:
     def __init__(self,
                  input_queues: dict[str, str] = {},
                  callback: Callable = None,
+                 eof_callback: Callable = None,
                  output_queues: list[str] = [],
                  output_exchanges: list[str] = [],
-                 n_output_instances: int = 1
+                 n_output_instances: int = 1,
+                 instance_id: int = None,
                  ):
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
-        self.input_queues = input_queues
+        self.input_queues = {}
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.callback = callback
+        self.eof_callback = eof_callback
         self.n_output_instances = n_output_instances
-        self._init_input()
+        self.instance_id = instance_id
+        self._init_input(input_queues)
         self._init_output()
 
-    def _init_input(self):
-        for queue, exchange in self.input_queues.items():
-            self.add_input_queue(queue, self.callback, exchange=exchange)
+    def _init_input(self, input_queues):
+        for queue, exchange in input_queues.items():
+            suffix = "" if self.instance_id is None else f'_{self.instance_id}'
+            self.add_input_queue(f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
 
     def _init_output(self):
         for i in range(self.n_output_instances):
@@ -90,7 +95,9 @@ class Middleware:
             queue=input_queue,
             on_message_callback=wrapped_callback,
             auto_ack=auto_ack)
-        self.input_queues[input_queue] = exchange
+
+        if input_queue not in self.input_queues:
+            self.input_queues[input_queue] = exchange
 
     def _callback_wrapper(self,
                           callback: Callable[[Packet], any],
@@ -100,23 +107,19 @@ class Middleware:
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
-            should_ack = True
 
             if packet.packet_type() == PacketType.EOF:
                 logging.info("Received EOF packet")
-                # TODO: Check this
-                self.send(packet.encode())
                 if eof_callback:
                     eof_callback(packet)
             else:
                 # Check if auto ack is on
                 should_ack = callback(packet)
-
-            if not auto_ack:
-                if should_ack:
-                    self.ack(method.delivery_tag)
-                else:
-                    self.nack(method.delivery_tag)
+                if not auto_ack:
+                    if should_ack:
+                        self.ack(method.delivery_tag)
+                    else:
+                        self.nack(method.delivery_tag)
 
         return wrapper
 
@@ -125,3 +128,11 @@ class Middleware:
 
     def nack(self, delivery_tag):
         self.channel.basic_nack(delivery_tag=delivery_tag)
+
+    def return_eof(self, eof_packet: EOFPacket):
+        data = eof_packet.encode()
+        for queue in self.input_queues:
+            queue = queue if self.instance_id is None else queue.removesuffix(f'{self.instance_id}')+f"{self.instance_id+1}"
+            self.channel.basic_publish(
+                exchange='', routing_key=queue, body=data)
+            logging.debug("Sent to queue %s: %s", queue, data)
