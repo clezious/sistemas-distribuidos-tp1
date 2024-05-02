@@ -25,6 +25,3 @@ class ResultPacket():
 
     def __str__(self):
         return self.encode()
-
-b = Book(1, "title", "author", 2021, "genre", "publisher")
-r = ResultPacket(1, b)
