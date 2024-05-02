@@ -15,18 +15,20 @@ class ReviewStatsService:
                  input_queues: dict[str, str],
                  required_reviews_books_queue: str,
                  top_books_queue: str,
-                 instance_id: int):
+                 instance_id: int,
+                 cluster_size: int):
         self.middleware = Middleware(
             input_queues=input_queues,
             output_queues=[required_reviews_books_queue, top_books_queue],
             callback=self._save_review,
-            eof_callback=self._send_top_books,
+            eof_callback=self._handle_eof,
             instance_id=instance_id
         )
         self.book_reviews = {}
         self.required_reviews_books_queue = required_reviews_books_queue
         self.top_books_queue = top_books_queue
         self.instance_id = instance_id
+        self.cluster_size = cluster_size
 
     def start(self):
         self.middleware.start()
@@ -67,11 +69,15 @@ class ReviewStatsService:
         logging.info("Service reset")
 
     def _handle_eof(self, eof_packet: EOFPacket):
-        if self.instance_id in eof_packet.ack_instances:
-            self.middleware.return_eof(eof_packet)
-            return
+        if self.instance_id not in eof_packet.ack_instances:
+            eof_packet.ack_instances.append(self.instance_id)
 
-        self._send_top_books()
+        if len(eof_packet.ack_instances) == self.cluster_size:
+            self._send_top_books()
+            self.middleware.send(EOFPacket().encode())
+            logging.info("Sent EOF")
+        else:
+            self.middleware.return_eof(eof_packet)
 
     def _update_review_stats(self, review: Review):
         self.book_reviews[review.book_title]["total_reviews"] += 1
