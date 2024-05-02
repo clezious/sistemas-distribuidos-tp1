@@ -18,7 +18,7 @@ class Middleware:
                  eof_callback: Callable = None,
                  output_queues: list[str] = [],
                  output_exchanges: list[str] = [],
-                 n_output_instances: int = 1,
+                 n_output_instances: int = None,
                  instance_id: int = None,
                  ):
         self.connection = pika.BlockingConnection(
@@ -41,10 +41,13 @@ class Middleware:
             self.add_input_queue(f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
 
     def _init_output(self):
-        for i in range(self.n_output_instances):
-            suffix = "" if self.n_output_instances == 1 else f'_{i}'
+        if self.n_output_instances is None:
             for queue in self.output_queues:
-                self.channel.queue_declare(queue=f'{queue}{suffix}')
+                self.channel.queue_declare(queue=queue)
+        else:
+            for i in range(self.n_output_instances):
+                for queue in self.output_queues:
+                    self.channel.queue_declare(queue=f'{queue}_{i}')
 
         for exchange in self.output_exchanges:
             self.channel.exchange_declare(

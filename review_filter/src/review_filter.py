@@ -14,11 +14,19 @@ class ReviewFilter:
                  instance_id: int,
                  cluster_size: int):
         self.books_middleware = Middleware(
-            input_queues={book_input_queue[0]: book_input_queue[1]}, callback=self._add_book,
-            eof_callback=self.handle_books_eof, output_queues=[], output_exchanges=[], instance_id=instance_id)
+            input_queues={book_input_queue[0]: book_input_queue[1]},
+            callback=self._add_book,
+            eof_callback=self.handle_books_eof,
+            output_queues=[],
+            output_exchanges=[],
+            instance_id=instance_id)
         self.reviews_middleware = Middleware(
-            input_queues={review_input_queue[0]: review_input_queue[1]}, callback=self._filter_review,
-            eof_callback=self.handle_reviews_eof, output_queues=output_queues, output_exchanges=output_exchanges)  # TODO ADD INSTANCE ID!
+            input_queues={review_input_queue[0]: review_input_queue[1]},
+            callback=self._filter_review,
+            eof_callback=self.handle_reviews_eof,
+            output_queues=output_queues,
+            output_exchanges=output_exchanges,
+            instance_id=instance_id)  # TODO ADD INSTANCE ID!
 
         self.instance_id = instance_id
         self.cluster_size = cluster_size
