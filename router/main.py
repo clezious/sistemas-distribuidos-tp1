@@ -11,9 +11,12 @@ output_queues = json.loads(os.getenv("OUTPUT_QUEUES") or '[]')
 output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES") or '[]')
 hash_by_field: str = os.getenv("HASH_BY_FIELD") or None
 n_instances: int = int(os.getenv("N_INSTANCES") or 1)
+instance_id = json.loads(os.getenv("INSTANCE_ID") or '0')
+cluster_size = json.loads(os.getenv("CLUSTER_SIZE") or '0')
 
 router = Router(input_queues, output_queues,
                 output_exchanges, hash_by_field,
+                instance_id, cluster_size,
                 n_instances)
 
 signal.signal(signal.SIGTERM, lambda signum, frame: router.shutdown())
