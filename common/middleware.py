@@ -1,4 +1,5 @@
 import logging
+import signal
 from typing import Callable
 import pika
 
@@ -34,11 +35,13 @@ class Middleware:
         self.instance_id = instance_id
         self._init_input(input_queues)
         self._init_output()
+        signal.signal(signal.SIGTERM, self._graceful_shutdown)
 
     def _init_input(self, input_queues):
         for queue, exchange in input_queues.items():
             suffix = "" if self.instance_id is None else f'_{self.instance_id}'
-            self.add_input_queue(f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
+            self.add_input_queue(
+                f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
 
     def _init_output(self):
         if self.n_output_instances is None:
@@ -74,7 +77,7 @@ class Middleware:
 
     def shutdown(self):
         if self.input_queues:
-            self.channel.stop_consuming()
+            self.stop()
         self.connection.close()
         self.connection = None
         self.channel = None
@@ -134,10 +137,17 @@ class Middleware:
     def nack(self, delivery_tag):
         self.channel.basic_nack(delivery_tag=delivery_tag)
 
+    def stop(self):
+        self.channel.stop_consuming()
+
     def return_eof(self, eof_packet: EOFPacket):
         data = eof_packet.encode()
         for queue in self.input_queues:
-            queue = queue if self.instance_id is None else queue.removesuffix(f'{self.instance_id}')+f"{self.instance_id+1}"
+            queue = queue if self.instance_id is None else queue.removesuffix(
+                f'{self.instance_id}')+f"{self.instance_id+1}"
             self.channel.basic_publish(
                 exchange='', routing_key=queue, body=data)
-            logging.debug("Sent to queue %s: %s", queue, data)
+            logging.info("Sent to queue %s: %s", queue, data)
+
+    def _graceful_shutdown(self):
+        self.shutdown()
