@@ -12,10 +12,10 @@ class Book(Packet):
     def __init__(self,
                  title: str,
                  description: str,
-                 authors: list[str],
+                 authors: str,
                  publisher: str,
                  year: int,
-                 categories: list):
+                 categories: str):
         self.title = title
         self.description = description
         self.authors = authors
