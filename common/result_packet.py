@@ -1,5 +1,4 @@
 import json
-from common.book import Book
 from common.packet import Packet
 from common.packet_decoder import PacketDecoder
 
