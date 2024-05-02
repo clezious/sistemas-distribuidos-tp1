@@ -3,7 +3,7 @@ from common.packet_type import PacketType
 
 
 class ReviewAndAuthor(Packet):
-    def __init__(self, book_title: str, score: int, text: str, authors: str):
+    def __init__(self, book_title: str, score: float, text: str, authors: str):
         self.book_title = book_title
         self.score = score
         self.text = text
