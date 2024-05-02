@@ -13,12 +13,13 @@ class Router:
                  instance_id: int,
                  cluster_size: int,
                  n_instances: int):
-        self.middleware: Middleware = Middleware(input_queues=input_queues,
-                                                 callback=self.route_by_field_hash,
-                                                 eof_callback=self.handle_eof,
-                                                 output_queues=output_queues,
-                                                 output_exchanges=output_exchanges,
-                                                 n_output_instances=n_instances)
+        self.middleware: Middleware = Middleware(
+            input_queues=input_queues,
+            callback=self.route_by_field_hash,
+            eof_callback=self.handle_eof,
+            output_queues=output_queues,
+            output_exchanges=output_exchanges,
+            n_output_instances=n_instances)
         self.instance_id = instance_id
         self.cluster_size = cluster_size
         self.hash_by_field = hash_by_field
