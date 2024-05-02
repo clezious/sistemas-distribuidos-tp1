@@ -71,11 +71,11 @@ class ReviewStatsService:
     def _handle_eof(self, eof_packet: EOFPacket):
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            self._send_top_books()  # TODO: Check this
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self._send_top_books()
             self.middleware.send(EOFPacket().encode())
-            logging.info("Sent EOF")
+            logging.info("Forwarded EOF")
         else:
             self.middleware.return_eof(eof_packet)
 

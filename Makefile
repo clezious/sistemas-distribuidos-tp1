@@ -13,6 +13,7 @@ docker-image:
 	docker build -f ./author_decades_counter/Dockerfile -t "author_decades_counter:latest" .
 	docker build -f ./router/Dockerfile -t "router:latest" .
 	docker build -f ./review_stats_service/Dockerfile -t "review_stats_service:latest" .
+	docker build -f ./sentiment_analyzer/Dockerfile -t "sentiment_analyzer:latest" .
 	docker build -f ./review_mean_aggregator/Dockerfile -t "review_mean_aggregator:latest" .
 	# Execute this command from time to time to clean up intermediate stages generated 
 	# during client build (your hard drive will like this :) ). Don't leave uncommented if you 
