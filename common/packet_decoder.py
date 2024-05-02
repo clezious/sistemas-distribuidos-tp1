@@ -1,9 +1,11 @@
 import json
 
 from common.book import Book
+from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
 from common.packet_type import PacketType
 from common.review import Review
+from common.review_and_author import ReviewAndAuthor
 
 
 class PacketDecoder():
@@ -18,5 +20,9 @@ class PacketDecoder():
             return Review.decode(packet_payload)
         elif packet_type == PacketType.EOF:
             return EOFPacket.decode(packet_payload)
+        elif packet_type == PacketType.BOOK_STATS:
+            return BookStats.decode(packet_payload)
+        elif packet_type == PacketType.REVIEW_AND_AUTHOR:
+            return ReviewAndAuthor.decode(packet_payload)
         else:
             raise ValueError("Tipo de paquete desconocido")

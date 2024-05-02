@@ -10,9 +10,11 @@ class Review(Packet):
         self.score = score
         self.text = text
 
+    @property
     def packet_type(self):
         return PacketType.REVIEW
-    
+
+    @property
     def payload(self):
         return [self.book_title, self.score, self.text]
 
