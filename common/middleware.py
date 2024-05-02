@@ -113,7 +113,7 @@ class Middleware:
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
 
-            if packet.packet_type() == PacketType.EOF:
+            if packet.packet_type == PacketType.EOF:
                 logging.info("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
