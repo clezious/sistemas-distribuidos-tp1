@@ -12,6 +12,7 @@ docker-image:
 	docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .
 	docker build -f ./author_decades_counter/Dockerfile -t "author_decades_counter:latest" .
 	docker build -f ./router/Dockerfile -t "router:latest" .
+	docker build -f ./review_stats_service/Dockerfile -t "review_stats_service:latest" .
 	# Execute this command from time to time to clean up intermediate stages generated 
 	# during client build (your hard drive will like this :) ). Don't leave uncommented if you 
 	# want to avoid rebuilding client image every time the docker-compose-up command 
@@ -33,7 +34,7 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 docker-compose-up-gen: docker-image
-	python ./docker-compose-generator/main.py
+	python3 ./docker-compose-generator/main.py
 	docker compose -f docker-compose-gen.yaml up -d --build
 .PHONY: docker-compose-up-gen
 

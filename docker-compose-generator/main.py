@@ -42,6 +42,8 @@ def initialize_config():
         config["CONTAINERS"]["1990_1999_REVIEW_ROUTER_BY_TITLE"])
     config_params["review_stats_service"] = int(
         config["CONTAINERS"]["REVIEW_STATS_SERVICE"])
+    config_params["1990_1999_reviews_stats_router_by_title"] = int(
+        config["CONTAINERS"]["1990_1999_REVIEWS_STATS_ROUTER_BY_TITLE"])
 
     return config_params
 

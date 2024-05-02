@@ -34,7 +34,7 @@ class ConfigGenerator:
         self._generate_review_filters_by_book_year_1990_1999()
         self._generate_review_filters_by_book_category_fiction()
         self._generate_routers()
-        # self._generate_review_stats_service()
+        self._generate_review_stats_service()
         return self.config
 
     def _generate_routers(self):
@@ -77,6 +77,15 @@ class ConfigGenerator:
             self.config_params["review_filter_by_book_year_1990_1999"],
             {"1990_1999_reviews_router": "reviews"},
             ["1990_1999_reviews_by_title"]
+        )
+
+        self._generate_router(
+            "1990_1999_review_stats_router_by_title",
+            "book_title",
+            self.config_params["1990_1999_reviews_stats_router_by_title"],
+            self.config_params["1990_1999_reviews_stats_router_by_title"],
+            {"1990_1999_reviews": ""},
+            ["1990_1999_reviews_stats_router_by_title"]
         )
 
     def _generate_service(self,
@@ -280,14 +289,14 @@ class ConfigGenerator:
             output_exchanges=output_exchanges
         )
 
-    # def _generate_review_stats_service(self):
-    #     instances = self.config_params["review_stats_service"]
-    #     self._generate_service(
-    #         "review_stats_service",
-    #         "review_stats_service:latest",
-    #         ['REQUIRED_REVIEWS_BOOKS_OUTPUT_QUEUE="query3_result"',
-    #          'TOP_BOOKS_OUTPUT_QUEUE="top_10_books"'],
-    #         ["test_net"],
-    #         input_queues={"1990_1999_reviews": ""},
-    #         instances=instances
-    #     )
+    def _generate_review_stats_service(self):
+        instances = self.config_params["review_stats_service"]
+        self._generate_service(
+            "review_stats_service",
+            "review_stats_service:latest",
+            ['REQUIRED_REVIEWS_BOOKS_OUTPUT_QUEUE="query3_result"',
+             'TOP_BOOKS_OUTPUT_QUEUE="top_10_books"'],
+            ["test_net"],
+            input_queues={"1990_1999_reviews_stats_router_by_title": ""},
+            instances=instances
+        )
