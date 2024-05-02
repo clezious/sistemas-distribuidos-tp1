@@ -120,6 +120,7 @@ class Middleware:
                 logging.info("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
+                self.ack(method.delivery_tag)
             else:
                 # Check if auto ack is on
                 should_ack = callback(packet)
@@ -139,6 +140,7 @@ class Middleware:
 
     def stop(self):
         self.channel.stop_consuming()
+        logging.info("Middleware stopped consuming messages")
 
     def return_eof(self, eof_packet: EOFPacket):
         data = eof_packet.encode()

@@ -6,7 +6,7 @@ from io import TextIOWrapper
 LENGTH_BYTES = 2
 
 
-class Client():
+class ClientSender():
     def __init__(self, file_path: str, ip: str, port: int):
         self.file_path = file_path
         self.ip = ip

@@ -1,7 +1,9 @@
 import logging
 import signal
 import socket
+
 from .boundary_type import BoundaryType
+from common.receive_utils import receive_line
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.book import Book
@@ -37,7 +39,8 @@ class InputBoundary():
     def __handle_client_connection(self, client_socket: socket.socket):
         while True:
             try:
-                data = receive_line(client_socket).decode().strip()
+                data = receive_line(
+                    client_socket, LENGTH_BYTES).decode().strip()
                 logging.debug("Received line: %s", data)
                 packet = None
                 if self.boundary_type == BoundaryType.BOOK:
@@ -58,21 +61,3 @@ class InputBoundary():
     def __graceful_shutdown(self, signum, frame):
         # TODO: Implement graceful shutdown
         raise NotImplementedError("Graceful shutdown not implemented")
-
-
-def receive_exact(s: socket.socket, length: int) -> bytes:
-    data = b''
-    while len(data) < length:
-        bytes_remaining = length - len(data)
-        new_data = s.recv(min(MAX_READ_SIZE, bytes_remaining))
-        if not new_data:
-            raise EOFError("EOF reached while reading data")
-        data += new_data
-    return data
-
-
-def receive_line(s: socket.socket) -> bytes:
-    length_as_bytes = receive_exact(s, LENGTH_BYTES)
-    length = int.from_bytes(length_as_bytes, byteorder='big')
-    data = receive_exact(s, length)
-    return data

@@ -23,4 +23,4 @@ class ResultPacket():
         return ResultPacket(query, result)
 
     def __str__(self):
-        return self.encode()
+        return f"ResultPacket(query={self.query}, result={self.result})"

@@ -38,6 +38,7 @@ class ConfigGenerator:
         self._generate_sentiment_analyzer()
         self._generate_sentiment_aggregator()
         self._generate_review_mean_aggregator()
+        self._generate_output_boundary()
         return self.config
 
     def _generate_routers(self):
@@ -274,7 +275,9 @@ class ConfigGenerator:
             ["BOOK_BOUNDARY_PORT=12345",
              "BOOK_BOUNDARY_IP=book_boundary",
              "REVIEW_BOUNDARY_PORT=12345",
-             "REVIEW_BOUNDARY_IP=review_boundary"],
+             "REVIEW_BOUNDARY_IP=review_boundary",
+             "RESULT_BOUNDARY_PORT=12345",
+             "RESULT_BOUNDARY_IP=output_boundary"],
             ["test_net"],
             ["./datasets:/datasets"],
             depends_on=["book_boundary", "review_boundary"])
@@ -290,6 +293,23 @@ class ConfigGenerator:
              "SERVER_LISTEN_BACKLOG=1"],
             ["test_net"],
             output_exchanges=output_exchanges
+        )
+
+    def _generate_output_boundary(self):
+        result_queues = json.dumps({
+            1: "query1_result",
+            2: "query2_result",
+            3: "query3_result",
+            4: "query4_result",
+            5: "query5_result",
+        }, separators=(',', ':'))
+        self._generate_service(
+            "output_boundary",
+            "output_boundary:latest",
+            ["SERVER_PORT=12345",
+             "SERVER_LISTEN_BACKLOG=1",
+             f"RESULT_QUEUES={result_queues}"],
+            ["test_net"],
         )
 
     def _generate_review_stats_service(self):

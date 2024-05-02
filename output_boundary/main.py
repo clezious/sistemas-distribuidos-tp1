@@ -11,7 +11,7 @@ def main():
     port = os.getenv("PORT", DEFAULT_PORT)
     listen_backlog = os.getenv("LISTEN_BACKLOG", DEFAULT_LISTEN_BACKLOG)
     result_queues = json.loads(os.getenv("RESULT_QUEUES"))
-    initialize_log(os.getenv(["LOG_LEVEL"], "INFO"))
+    initialize_log(os.getenv("LOG_LEVEL", "INFO"))
     output_boundary = OutputBoundary(port,
                                      listen_backlog,
                                      result_queues)
