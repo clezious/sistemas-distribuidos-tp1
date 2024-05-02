@@ -23,8 +23,8 @@ class ConfigGenerator:
 
     def generate(self) -> dict:
         self._generate_client()
-        self._generate_boundary("book", ["books"])
-        self._generate_boundary("review", ["reviews"])
+        self._generate_input_boundary("book", ["books"])
+        self._generate_input_boundary("review", ["reviews"])
         self._generate_book_filters_by_category_computers()
         self._generate_book_filters_by_category_fiction()
         self._generate_book_filters_by_year_2000_2023()
@@ -279,12 +279,12 @@ class ConfigGenerator:
             ["./datasets:/datasets"],
             depends_on=["book_boundary", "review_boundary"])
 
-    def _generate_boundary(self,
-                           boundary_type: str,
-                           output_exchanges: list[str] = []):
+    def _generate_input_boundary(self,
+                                 boundary_type: str,
+                                 output_exchanges: list[str] = []):
         self._generate_service(
             f"{boundary_type}_boundary",
-            "boundary:latest",
+            "input_boundary:latest",
             [f"BOUNDARY_TYPE={boundary_type}",
              "SERVER_PORT=12345",
              "SERVER_LISTEN_BACKLOG=1"],
