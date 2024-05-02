@@ -1,4 +1,3 @@
-import heapq
 import logging
 from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
@@ -32,16 +31,14 @@ class SentimentAggregator:
         for title, book_stats in self.books_stats.items():
             average_score = book_stats["total_score"] / book_stats["total_reviews"]
             stats.append(BookStats(title, average_score))
-
-        percentile = heapq.nlargest(
-            int(len(stats) * (1 - PERCENTILE / 100)),
-            stats,
-            key=lambda x: x.score
-        )
+        stats.sort(key=lambda x: x.score)
+        percentile_90_score = stats[int(len(stats) * (PERCENTILE / 100))].score
+        logging.info("90th percentile score: %f", percentile_90_score)
+        percentile = [book_stats for book_stats in stats if book_stats.score >= percentile_90_score]
 
         for book_stats in percentile:
             self.middleware.send(book_stats.encode())
-            logging.debug("Sent book stats: %s", book_stats)
+            logging.info("Sent book stats: %s", book_stats)
 
         self.middleware.send(EOFPacket().encode())
         self.books_stats = {}
@@ -54,4 +51,4 @@ class SentimentAggregator:
             }
         self.books_stats[book_stats.title]["total_score"] += book_stats.score
         self.books_stats[book_stats.title]["total_reviews"] += 1
-        logging.debug("Received book stats: %s", book_stats)
+        logging.info("Received book stats: %s", book_stats)
