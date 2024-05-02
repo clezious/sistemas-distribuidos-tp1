@@ -12,10 +12,13 @@ def main():
     review_input_queue = json.loads(os.getenv('REVIEW_INPUT_QUEUE'))
     output_queues = json.loads(os.getenv("OUTPUT_QUEUES")) or []
     output_exchanges = json.loads(os.getenv("OUTPUT_EXCHANGES")) or []
+    instance_id = json.loads(os.getenv("INSTANCE_ID") or '0')
+    cluster_size = json.loads(os.getenv("CLUSTER_SIZE") or '0')
 
     logging.info(book_input_queue)
     review_filter = ReviewFilter(book_input_queue, review_input_queue,
-                                 output_queues, output_exchanges)
+                                 output_queues, output_exchanges,
+                                 instance_id, cluster_size)
     logging.info("Review filter starting")
     review_filter.start()
 
