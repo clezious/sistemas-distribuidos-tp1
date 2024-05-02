@@ -71,7 +71,7 @@ class ReviewFilter:
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
-        logging.debug("Received and saved book: %s", book.title)
+        logging.info("Received and saved book: %s", book.title)
 
     def _reset_filter(self):
         self.books = {}
@@ -115,4 +115,4 @@ class ReviewFilter:
             review.text,
             author)
         self.reviews_middleware.send(review_and_author.encode())
-        logging.debug("Filter passed - review for: %s", review.book_title)
+        logging.info("Filter passed - review for: %s", review.book_title)

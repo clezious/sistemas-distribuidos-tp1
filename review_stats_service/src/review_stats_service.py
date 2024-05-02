@@ -93,7 +93,7 @@ class ReviewStatsService:
             }
 
         self._update_review_stats(review)
-        logging.debug("Received and saved review: %s", review.book_title)
+        logging.info("Received and saved review: %s", review.book_title)
 
         total_reviews = self.book_reviews[review.book_title]["total_reviews"]
         if total_reviews == REQUIRED_TOTAL_REVIEWS:
