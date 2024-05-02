@@ -25,7 +25,7 @@ class Middleware:
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
-        self.input_queues = {}
+        self.input_queues: dict[str, str] = {}
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.callback = callback
@@ -61,14 +61,16 @@ class Middleware:
     def send(self, data: str, instance_id: int = None):
         suffix = f"_{instance_id}" if instance_id is not None else ""
         for queue in self.output_queues:
-            self.channel.basic_publish(
-                exchange='', routing_key=f'{queue}{suffix}', body=data)
-            logging.debug("Sent to queue %s: %s", queue, data)
+            self.send_to_queue(f'{queue}{suffix}', data)
 
         for exchange in self.output_exchanges:
             self.channel.basic_publish(
                 exchange=exchange, routing_key='', body=data)
             logging.debug("Sent to exchange %s: %s", exchange, data)
+
+    def send_to_queue(self, queue: str, data: str):
+        self.channel.basic_publish(exchange='', routing_key=queue, body=data)
+        logging.debug("Sent to queue %s: %s", queue, data)
 
     def shutdown(self):
         if self.input_queues:
