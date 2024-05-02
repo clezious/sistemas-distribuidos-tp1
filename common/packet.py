@@ -26,3 +26,6 @@ class Packet(ABC):
 
     def __str__(self):
         return self.encode()
+
+    def get(self, field: str):
+        return getattr(self, field, None)
