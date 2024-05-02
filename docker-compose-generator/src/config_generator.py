@@ -159,7 +159,7 @@ class ConfigGenerator:
         self._generate_service(
             "book_filter_by_category_fiction",
             "book_filter:latest",
-            ['FILTER_BY_FIELD="categories"', 'FILTER_BY_VALUES=["Fiction"]'],
+            ['FILTER_BY_FIELD="categories"', 'FILTER_BY_VALUES=["fiction"]'],
             ["test_net"],
             input_queues={"books_filter_by_category_fiction": "books"},
             output_queues=["fiction_books"],
