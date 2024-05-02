@@ -17,6 +17,6 @@ class PacketDecoder():
         elif packet_type == PacketType.REVIEW:
             return Review.decode(packet_payload)
         elif packet_type == PacketType.EOF:
-            return EOFPacket()
+            return EOFPacket.decode(packet_payload)
         else:
             raise ValueError("Tipo de paquete desconocido")
