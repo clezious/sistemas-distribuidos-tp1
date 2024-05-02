@@ -51,7 +51,7 @@ class Middleware:
         logging.info("Middleware started")
 
     def send(self, data: str, instance_id: int = None):
-        suffix = f"_{instance_id}" if instance_id else ""
+        suffix = f"_{instance_id}" if instance_id is not None else ""
         for queue in self.output_queues:
             self.channel.basic_publish(
                 exchange='', routing_key=f'{queue}{suffix}', body=data)
