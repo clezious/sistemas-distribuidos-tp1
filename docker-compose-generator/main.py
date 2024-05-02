@@ -32,8 +32,16 @@ def initialize_config():
         config["CONTAINERS"]["REVIEW_FILTER_BY_BOOK_CATEGORY_FICTION"])
     config_params["book_router_by_author"] = int(
         config["CONTAINERS"]["BOOK_ROUTER_BY_AUTHOR"])
-    config_params["book_router_by_title"] = int(
-        config["CONTAINERS"]["BOOK_ROUTER_BY_TITLE"])
+    config_params["fiction_book_router_by_title"] = int(
+        config["CONTAINERS"]["FICTION_BOOK_ROUTER_BY_TITLE"])
+    config_params["1990_1999_book_router_by_title"] = int(
+        config["CONTAINERS"]["1990_1999_BOOK_ROUTER_BY_TITLE"])
+    config_params["fiction_review_router_by_title"] = int(
+        config["CONTAINERS"]["FICTION_REVIEW_ROUTER_BY_TITLE"])
+    config_params["1990_1999_review_router_by_title"] = int(
+        config["CONTAINERS"]["1990_1999_REVIEW_ROUTER_BY_TITLE"])
+    config_params["review_stats_service"] = int(
+        config["CONTAINERS"]["REVIEW_STATS_SERVICE"])
 
     return config_params
 
