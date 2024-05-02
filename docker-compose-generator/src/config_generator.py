@@ -34,6 +34,7 @@ class ConfigGenerator:
         self._generate_review_filters_by_book_year_1990_1999()
         self._generate_review_filters_by_book_category_fiction()
         self._generate_book_router_by_author()
+        self._generate_book_router_by_title()
         return self.config
 
     def _generate_service(self,
@@ -179,7 +180,7 @@ class ConfigGenerator:
         self._generate_service(
             "review_filter_by_book_category_fiction",
             "review_filter:latest",
-            ['BOOK_INPUT_QUEUE=["fiction_books",""]',
+            ['BOOK_INPUT_QUEUE=["fiction_books_by_title",""]',
              'REVIEW_INPUT_QUEUE=["fiction_reviews_pre_filter","reviews"]'],
             ["test_net"],
             output_queues=["fiction_reviews"],
@@ -197,6 +198,20 @@ class ConfigGenerator:
             ["test_net"],
             input_queues={"book_router_by_author": "books"},
             output_queues=["books_by_authors"],
+            output_exchanges=[],
+            instances=instances
+        )
+
+    def _generate_book_router_by_title(self):
+        instances = self.config_params["book_router_by_title"]
+        self._generate_service(
+            "book_router_by_title",
+            "router:latest",
+            ['HASH_BY_FIELD=title',
+             f'N_INSTANCES={self.config_params["review_filter_by_book_category_fiction"]}'],
+            ["test_net"],
+            input_queues={"fiction_books": ""},
+            output_queues=["fiction_books_by_title"],
             output_exchanges=[],
             instances=instances
         )

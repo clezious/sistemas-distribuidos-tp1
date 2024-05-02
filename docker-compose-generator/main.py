@@ -32,6 +32,8 @@ def initialize_config():
         config["CONTAINERS"]["REVIEW_FILTER_BY_BOOK_CATEGORY_FICTION"])
     config_params["book_router_by_author"] = int(
         config["CONTAINERS"]["BOOK_ROUTER_BY_AUTHOR"])
+    config_params["book_router_by_title"] = int(
+        config["CONTAINERS"]["BOOK_ROUTER_BY_TITLE"])
 
     return config_params
 
