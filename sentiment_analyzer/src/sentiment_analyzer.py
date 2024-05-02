@@ -5,9 +5,6 @@ from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.review_and_author import ReviewAndAuthor
 
-REQUIRED_TOTAL_REVIEWS = 500
-TOP_BOOKS = 10
-
 
 class SentimentAnalyzer:
     def __init__(self,

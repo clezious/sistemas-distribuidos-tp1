@@ -15,7 +15,6 @@ class OutputBoundary():
         self.port = port
         self.middleware = None
         self.result_queues = result_queues
-        self._init_middleware()
         self.client_socket = None
         self.eofs = {query: False for query in result_queues.keys()}
 
@@ -68,13 +67,14 @@ class OutputBoundary():
         logging.info("Resetting boundary")
         self.eofs = {query: False for query in self.eofs.keys()}
         self.middleware.stop()
-        self._init_middleware()
+        self.middleware = None
         self.client_socket.close()
         self.client_socket = None
 
     def __handle_client_connection(self, client_socket: socket.socket):
-        print("Handling client connection")
+        logging.info("Handling client connection")
         self.client_socket = client_socket
+        self._init_middleware()
         self.middleware.start()
 
     def __graceful_shutdown(self, signum, frame):

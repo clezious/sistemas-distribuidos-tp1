@@ -39,7 +39,7 @@ class Router:
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode(), instance_id=0)
-            logging.debug(f" [x] Sent EOF: {eof_packet}")
+            logging.info(f" [x] Forwarded EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)
 
