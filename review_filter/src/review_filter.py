@@ -3,6 +3,7 @@ from common.book import Book
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.review import Review
+from common.review_and_author import ReviewAndAuthor
 
 
 class ReviewFilter:
@@ -30,7 +31,6 @@ class ReviewFilter:
 
         self.instance_id = instance_id
         self.cluster_size = cluster_size
-        self.books_finished = False
         self.books = {}
 
     def start(self):
@@ -41,10 +41,8 @@ class ReviewFilter:
         self.books_middleware.shutdown()
         self.reviews_middleware.shutdown()
 
-    def _set_books_finished(self):
-        self.books_finished = True
-        logging.info("Received books EOF")
-        self.books_middleware.shutdown()
+    def _start_reviews_middleware(self):
+        self.books_middleware.stop()
         self.reviews_middleware.start()
 
     def _add_book(self, book: Book):
@@ -52,40 +50,43 @@ class ReviewFilter:
         logging.debug("Received and saved book: %s", book.title)
 
     def _reset_filter(self):
-        self.books_finished = False
         self.books = {}
         logging.info("Filter reset")
 
     def handle_books_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received EOF: {eof_packet}")
+        logging.info(f" [x] Received Books EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            logging.debug(f" [x] Sent EOF: {eof_packet}")
-            self._set_books_finished()
+            logging.info(f" [x] Finished propagating Books EOF: {eof_packet}")
         else:
             self.books_middleware.return_eof(eof_packet)
+            logging.info(f" [x] Propagated Books EOF: {eof_packet}")
+
+        self._start_reviews_middleware()
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received EOF: {eof_packet}")
+        logging.info(f" [x] Received Reviews EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            self._reset_filter()
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.reviews_middleware.send(EOFPacket().encode())
-            logging.debug(f" [x] Sent EOF: {eof_packet}")
-            self._reset_filter()
+            logging.info(" [x] Forwarded EOF")
         else:
             self.reviews_middleware.return_eof(eof_packet)
 
     def _filter_review(self, review: Review):
-        if not self.books_finished:
-            logging.debug("Received review but didnt get books EOF")
-            return False
+        if review.book_title not in self.books:
+            return
 
-        if review.book_title in self.books:
-            self.reviews_middleware.send(review.encode())
-            logging.debug("Filter passed - review for: %s", review.book_title)
-
-        return True
+        author = self.books[review.book_title]
+        review_and_author = ReviewAndAuthor(
+            review.book_title,
+            review.score,
+            review.text,
+            author)
+        self.reviews_middleware.send(review_and_author.encode())
+        logging.debug("Filter passed - review for: %s", review.book_title)

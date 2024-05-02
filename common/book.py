@@ -39,9 +39,11 @@ class Book(Packet):
 
         return Book(title, description, authors, publisher, year, categories)
 
+    @property
     def packet_type(self):
         return PacketType.BOOK
 
+    @property
     def payload(self):
         return [self.title,
                 self.description,

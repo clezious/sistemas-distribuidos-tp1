@@ -1,4 +1,5 @@
 import logging
+import signal
 from typing import Callable
 import pika
 
@@ -25,7 +26,7 @@ class Middleware:
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
-        self.input_queues = {}
+        self.input_queues: dict[str, str] = {}
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.callback = callback
@@ -34,11 +35,13 @@ class Middleware:
         self.instance_id = instance_id
         self._init_input(input_queues)
         self._init_output()
+        signal.signal(signal.SIGTERM, self._graceful_shutdown)
 
     def _init_input(self, input_queues):
         for queue, exchange in input_queues.items():
             suffix = "" if self.instance_id is None else f'_{self.instance_id}'
-            self.add_input_queue(f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
+            self.add_input_queue(
+                f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
 
     def _init_output(self):
         if self.n_output_instances is None:
@@ -61,18 +64,20 @@ class Middleware:
     def send(self, data: str, instance_id: int = None):
         suffix = f"_{instance_id}" if instance_id is not None else ""
         for queue in self.output_queues:
-            self.channel.basic_publish(
-                exchange='', routing_key=f'{queue}{suffix}', body=data)
-            logging.debug("Sent to queue %s: %s", queue, data)
+            self.send_to_queue(f'{queue}{suffix}', data)
 
         for exchange in self.output_exchanges:
             self.channel.basic_publish(
                 exchange=exchange, routing_key='', body=data)
             logging.debug("Sent to exchange %s: %s", exchange, data)
 
+    def send_to_queue(self, queue: str, data: str):
+        self.channel.basic_publish(exchange='', routing_key=queue, body=data)
+        logging.debug("Sent to queue %s: %s", queue, data)
+
     def shutdown(self):
         if self.input_queues:
-            self.channel.stop_consuming()
+            self.stop()
         self.connection.close()
         self.connection = None
         self.channel = None
@@ -111,7 +116,7 @@ class Middleware:
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
 
-            if packet.packet_type() == PacketType.EOF:
+            if packet.packet_type == PacketType.EOF:
                 logging.info("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
@@ -132,10 +137,17 @@ class Middleware:
     def nack(self, delivery_tag):
         self.channel.basic_nack(delivery_tag=delivery_tag)
 
+    def stop(self):
+        self.channel.stop_consuming()
+
     def return_eof(self, eof_packet: EOFPacket):
         data = eof_packet.encode()
         for queue in self.input_queues:
-            queue = queue if self.instance_id is None else queue.removesuffix(f'{self.instance_id}')+f"{self.instance_id+1}"
+            queue = queue if self.instance_id is None else queue.removesuffix(
+                f'{self.instance_id}')+f"{self.instance_id+1}"
             self.channel.basic_publish(
                 exchange='', routing_key=queue, body=data)
-            logging.debug("Sent to queue %s: %s", queue, data)
+            logging.info("Sent to queue %s: %s", queue, data)
+
+    def _graceful_shutdown(self):
+        self.shutdown()
