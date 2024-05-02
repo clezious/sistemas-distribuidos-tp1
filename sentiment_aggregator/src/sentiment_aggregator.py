@@ -1,4 +1,3 @@
-import heapq
 import logging
 from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
