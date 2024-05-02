@@ -67,7 +67,7 @@ class ConfigGenerator:
             "book_title",
             self.config_params["fiction_review_router_by_title"],
             self.config_params["review_filter_by_book_category_fiction"],
-            {"fiction_reviews_router": "reviews"},
+            {"fiction_reviews_filter_router": "reviews"},
             ["fiction_reviews_by_title"]
         )
         self._generate_router(
@@ -75,7 +75,7 @@ class ConfigGenerator:
             "book_title",
             self.config_params["1990_1999_review_router_by_title"],
             self.config_params["review_filter_by_book_year_1990_1999"],
-            {"1990_1999_reviews_router": "reviews"},
+            {"1990_1999_reviews_filter_router": "reviews"},
             ["1990_1999_reviews_by_title"]
         )
 
