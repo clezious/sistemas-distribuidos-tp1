@@ -35,6 +35,7 @@ class ConfigGenerator:
         self._generate_review_filters_by_book_category_fiction()
         self._generate_routers()
         self._generate_review_stats_service()
+        self._generate_sentiment_analyzer()
         return self.config
 
     def _generate_routers(self):
@@ -298,5 +299,17 @@ class ConfigGenerator:
              'TOP_BOOKS_OUTPUT_QUEUE="top_10_books"'],
             ["test_net"],
             input_queues={"1990_1999_reviews_stats_router_by_title": ""},
+            instances=instances
+        )
+
+    def _generate_sentiment_analyzer(self):
+        instances = self.config_params["fiction_review_sentiment_analyzer"]
+        self._generate_service(
+            "fiction_review_sentiment_analyzer",
+            "sentiment_analyzer:latest",
+            [],
+            ["test_net"],
+            input_queues={"fiction_reviews": ""},
+            output_queues=["fiction_reviews_sentiment_scores"],
             instances=instances
         )
