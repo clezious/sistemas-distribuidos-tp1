@@ -1,6 +1,7 @@
 import logging
 import signal
 import socket
+import json
 
 from common.receive_utils import receive_line
 from common.result_packet import ResultPacket
@@ -26,7 +27,7 @@ class ClientReceiver():
 
     def _print_results(self):
         for query, results in self.results.items():
-            print("Query %d results: %s", query, results)
+            print(f"Query {query} results: {json.dumps(results,  indent=4)}")
 
     def _handle_server_connection(self, s: socket.socket):
         while True:
