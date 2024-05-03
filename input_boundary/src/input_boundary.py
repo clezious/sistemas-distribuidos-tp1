@@ -62,7 +62,7 @@ class InputBoundary():
                 break
 
     def shutdown(self):
-        logging.error("Graceful shutdown")
+        logging.info("Graceful shutdown")
         self.should_stop = True
         self.middleware.shutdown()
         self.server_socket.shutdown(socket.SHUT_RDWR)

@@ -51,4 +51,4 @@ class SentimentAggregator:
             }
         self.books_stats[book_stats.title]["total_score"] += book_stats.score
         self.books_stats[book_stats.title]["total_reviews"] += 1
-        logging.info("Received book stats: %s", book_stats)
+        logging.debug("Received book stats: %s", book_stats)

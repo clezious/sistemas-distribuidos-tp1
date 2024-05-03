@@ -43,7 +43,7 @@ class ClientSender():
         while line := file.readline():
             try:
                 self.__send_line(line.strip())
-                logging.info("Sent line: %s", line.strip())
+                logging.debug("Sent line: %s", line.strip())
             except BrokenPipeError:
                 logging.info("Connection closed")
                 break

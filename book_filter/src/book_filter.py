@@ -33,22 +33,22 @@ class BookFilter:
         self.middleware.shutdown()
 
     def handle_eof(self, eof_packet: EOFPacket):
-        logging.info(f" [x] Received EOF: {eof_packet}")
+        logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
-            logging.info(f" [x] Sent EOF: {eof_packet}")
+            logging.debug(f" [x] Sent EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)
 
     def filter_book(self, book: Book):
-        logging.info(f" [x] Received {book}")
+        logging.debug(f" [x] Received {book}")
         if self.filter_by(filter_by_field, filter_by_values, book):
-            logging.info(" [x] Filter passed. ")
+            logging.debug(" [x] Filter passed. ")
             self.middleware.send(book.encode())
-        logging.info(" [x] Done")
+        logging.debug(f" [x] Done fitering book: {book.title}")
 
     def filter_by(self, field: str, compare_values: list[str], book: Book):
         field_value = book.get(field)

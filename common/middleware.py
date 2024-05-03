@@ -63,9 +63,9 @@ class Middleware:
             if self.input_queues:
                 self.channel.start_consuming()
         except OSError:
-            logging.error("Middleware shutdown")
+            logging.debug("Middleware shutdown")
         except pika.exceptions.ConnectionClosedByBroker:
-            logging.error("Connection closed")
+            logging.debug("Connection closed")
 
     def send(self, data: str, instance_id: int = None):
         if not self.should_stop:
@@ -76,11 +76,11 @@ class Middleware:
             for exchange in self.output_exchanges:
                 self.channel.basic_publish(
                     exchange=exchange, routing_key='', body=data)
-                logging.info("Sent to exchange %s: %s", exchange, data)
+                logging.debug("Sent to exchange %s: %s", exchange, data)
 
     def send_to_queue(self, queue: str, data: str):
         self.channel.basic_publish(exchange='', routing_key=queue, body=data)
-        logging.info("Sent to queue %s: %s", queue, data)
+        logging.debug("Sent to queue %s: %s", queue, data)
 
     def shutdown(self):
         self.should_stop = True
@@ -123,7 +123,7 @@ class Middleware:
             packet = PacketDecoder.decode(body)
 
             if packet.packet_type == PacketType.EOF:
-                logging.info("Received EOF packet")
+                logging.debug("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
                 if not auto_ack:
@@ -156,4 +156,4 @@ class Middleware:
                 f'{self.instance_id}')+f"{self.instance_id+1}"
             self.channel.basic_publish(
                 exchange='', routing_key=queue, body=data)
-            logging.info("Sent to queue %s: %s", queue, data)
+            logging.debug("Sent to queue %s: %s", queue, data)

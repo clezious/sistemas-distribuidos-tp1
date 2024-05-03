@@ -20,7 +20,7 @@ class OutputBoundary():
         logging.info("Listening for connections and replying results")
 
     def shutdown(self):
-        logging.error("Graceful shutdown")
+        logging.info("Graceful shutdown")
         self.middleware.shutdown()
 
     def run(self):
@@ -43,7 +43,7 @@ class OutputBoundary():
     def _handle_query_result(self, query: int):
         def handle_result(result: Packet):
             result_packet = ResultPacket(query, result)
-            logging.info("Received result: %s", result_packet)
+            logging.debug("Received result: %s", result_packet)
             encoded_result = result_packet.encode()
             try:
                 self.client_socket.sendall(encoded_result)

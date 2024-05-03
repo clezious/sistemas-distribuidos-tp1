@@ -32,14 +32,14 @@ class DecadeCounter:
         self.middleware.shutdown()
 
     def handle_eof(self, eof_packet: EOFPacket):
-        logging.info(f" [x] Received EOF: {eof_packet}")
+        logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
-            logging.info(f" [x] Sent EOF: {eof_packet}")
+            logging.debug(f" [x] Sent EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)
 

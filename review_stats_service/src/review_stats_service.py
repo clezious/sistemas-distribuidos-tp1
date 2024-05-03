@@ -69,14 +69,14 @@ class ReviewStatsService:
         logging.info("Service reset")
 
     def _handle_eof(self, eof_packet: EOFPacket):
-        logging.info(f" [x] Received EOF: {eof_packet}")
+        logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self._send_top_books()  # TODO: Check this
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
-            logging.info("Forwarded EOF")
+            logging.debug("Forwarded EOF")
         else:
             self.middleware.return_eof(eof_packet)
 
@@ -93,7 +93,7 @@ class ReviewStatsService:
             }
 
         self._update_review_stats(review)
-        logging.info("Received and saved review: %s", review.book_title)
+        logging.debug("Received and saved review for: %s", review.book_title)
 
         total_reviews = self.book_reviews[review.book_title]["total_reviews"]
         if total_reviews == REQUIRED_TOTAL_REVIEWS:
