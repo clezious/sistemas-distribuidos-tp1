@@ -1,7 +1,7 @@
 import logging
 import signal
 import socket
-import json
+import csv
 
 from common.receive_utils import receive_line
 from common.result_packet import ResultPacket
@@ -10,11 +10,12 @@ LENGTH_BYTES = 2
 
 
 class ClientReceiver():
-    def __init__(self, ip: str, port: int):
+    def __init__(self, ip: str, port: int, output_dir: str):
         self.ip = ip
         self.port = port
         self.socket = None
         self.results = {query: [] for query in range(1, 6)}
+        self.output_dir = output_dir
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
@@ -23,11 +24,21 @@ class ClientReceiver():
         with self.socket:
             logging.info("Client waiting for results")
             self._handle_server_connection(self.socket)
-            self._print_results()
+            self._output_results()
 
-    def _print_results(self):
-        for query, results in self.results.items():
-            print(f"Query {query} results: {json.dumps(results,  indent=4)}")
+    def _output_results(self):
+        for query in self.results.keys():
+            file_name = f"{self.output_dir}/query_{query}.csv"
+            self.results[query] = sorted(self.results[query], key=lambda x: x[0])
+            self.save_query_to_csv_file(query, file_name)
+            print(f"Query {query} finished. Saved to {file_name}. Results count: {len(self.results[query])}.")
+
+    def save_query_to_csv_file(self, query: int, file_path: str):
+        with open(file_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',',
+                                quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for row in self.results[query]:
+                writer.writerow(row)
 
     def _handle_server_connection(self, s: socket.socket):
         while True:
