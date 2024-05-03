@@ -39,9 +39,13 @@ El sistema debe soportar el incremento de los volumenes de computo, con tal de p
   - Recibe elementos (`books` o `reviews`) de una cola de entrada,
     les aplica un hash sobre un campo configurable y los deposita en
     una cola de salida que depende del hash obtenido.
-- Input boundary
-  - Configurable para procesar batches de `books` o `reviews` de una cola de entrada,
-    eliminar campos que no sean necesarios (configurable), y depositar cada item en una cola de salida.
+- Client
+  - Lee csv con books y reviews y los envia al Boundary. Al finalizar, recibe del boundary los resultados y los almacena en archivos csv (1 por cada query)
+- Input_Boundary
+  - Configurable para procesar `books` o `reviews` enviados por un cliente en formato csv.
+    eliminar campos que no sean necesarios, y depositar cada item en una cola de salida.
+- Output boundary
+  - Espera los resultados de las queries y los envia al cliente.
 - Books_by_author_decades_counter
   - Recibe `books` de una cola de entrada y almacena por cada autor las decadas en las que publicó un libro.
     Al llegar a 10 decadas distintas se envia a una cola de salida el nombre del autor.
@@ -57,7 +61,7 @@ El sistema debe soportar el incremento de los volumenes de computo, con tal de p
   - Recibe `reviews` de una cola de entrada y almacena la cantidad y suma (de puntajes) de las reviews por cada `book`.
   - Recibe por otra cola de entrada un mensaje indicando que debe depositar en una cola de salida el top 10 (hasta el momento)
     de los `books` almacenados con mayor promedio de puntaje
-- Book_reviews_mean_rating_aggregator
+- Review_mean_rating_aggregator
   - Recibe el top 10 de `books` con mejor promedio de reseñas de cada instancia de `Book_review_stats_service` en una cola de entrada.
     - Al recibir una cantidad de mensajes igual a la cantidad de instancias de ese servicio, calcula el top 10 global y lo deposita en una cola de salida.
 
