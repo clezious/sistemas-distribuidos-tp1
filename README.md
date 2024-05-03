@@ -117,7 +117,7 @@ Finalmente, el input boundary utiliza funciones auxiliares de recepcion de mensa
 
 
 ## DAG
-![DAG](./images/dag.png)
+![DAG](./images/DAG.png)
 
 [Link al diagrama](https://viewer.diagrams.net/?page-id=9488BZJgpK-lBa-DFY4Z&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=9488BZJgpK-lBa-DFY4Z#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
