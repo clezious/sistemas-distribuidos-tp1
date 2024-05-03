@@ -64,7 +64,7 @@ def main():
     result_client = ClientReceiver(
         config_params["result_boundary_ip"],
         config_params["result_boundary_port"],
-        output_dir="../datasets/results")
+        output_dir="../datasets")
     result_client.run()
     logging.info("Received all results")
 
