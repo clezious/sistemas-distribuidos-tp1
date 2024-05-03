@@ -72,8 +72,8 @@ class ReviewFilter:
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
         logging.debug("Received and saved book: %s", book.title)
-        if len(self.books) % 5000 == 0:
-            logging.info("Books count: %d", len(self.books))
+        if len(self.books) % 2000 == 0:
+            logging.info("Stored books count: %d", len(self.books))
 
     def _reset_filter(self):
         self.books = {}
