@@ -1,7 +1,8 @@
 from configparser import ConfigParser
 import json
 import os
-from src.boundary import Boundary
+from src.input_boundary import InputBoundary
+import signal
 from src.boundary_type import BoundaryType
 from common.logs import initialize_log
 
@@ -45,8 +46,9 @@ def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     boundary_type = BoundaryType.from_str(config_params["boundary_type"])
-    boundary = Boundary(config_params["port"], config_params["listen_backlog"],
-                        config_params["output_exchange"], boundary_type)
+    boundary = InputBoundary(config_params["port"], config_params["listen_backlog"],
+                             config_params["output_exchange"], boundary_type)
+    signal.signal(signal.SIGTERM, lambda signum, frame: boundary.shutdown())
     boundary.run()
 
 

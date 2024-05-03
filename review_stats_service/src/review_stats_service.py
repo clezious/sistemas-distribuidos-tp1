@@ -69,6 +69,7 @@ class ReviewStatsService:
         logging.info("Service reset")
 
     def _handle_eof(self, eof_packet: EOFPacket):
+        logging.info(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self._send_top_books()  # TODO: Check this

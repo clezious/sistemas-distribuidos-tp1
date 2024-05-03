@@ -14,24 +14,17 @@ class ReviewFilter:
                  output_exchanges: list,
                  instance_id: int,
                  cluster_size: int):
-        self.books_middleware = Middleware(
-            input_queues={book_input_queue[0]: book_input_queue[1]},
-            callback=self._add_book,
-            eof_callback=self.handle_books_eof,
-            output_queues=[],
-            output_exchanges=[],
-            instance_id=instance_id)
-        self.reviews_middleware = Middleware(
-            input_queues={review_input_queue[0]: review_input_queue[1]},
-            callback=self._filter_review,
-            eof_callback=self.handle_reviews_eof,
-            output_queues=output_queues,
-            output_exchanges=output_exchanges,
-            instance_id=instance_id)  # TODO ADD INSTANCE ID!
-
+        self.book_input_queue = book_input_queue
+        self.review_input_queue = review_input_queue
+        self.books_middleware = None
+        self.reviews_middleware = None
         self.instance_id = instance_id
         self.cluster_size = cluster_size
+        self.output_queues = output_queues
+        self.output_exchanges = output_exchanges
         self.books = {}
+        self._init_books_middleware()
+        self._init_reviews_middleware()
 
     def start(self):
         self.books_middleware.start()
@@ -41,9 +34,40 @@ class ReviewFilter:
         self.books_middleware.shutdown()
         self.reviews_middleware.shutdown()
 
+    def _init_books_middleware(self):
+        logging.info("Initializing Books Middleware")
+        self.books_middleware = Middleware(
+            input_queues={self.book_input_queue[0]: self.book_input_queue[1]},
+            callback=self._add_book,
+            eof_callback=self.handle_books_eof,
+            output_queues=self.output_queues,
+            output_exchanges=self.output_exchanges,
+            instance_id=self.instance_id)
+
+    def _init_reviews_middleware(self):
+        logging.info("Initializing Reviews Middleware")
+        self.reviews_middleware = Middleware(
+            input_queues={
+                self.review_input_queue[0]: self.review_input_queue[1]},
+            callback=self._filter_review,
+            eof_callback=self.handle_reviews_eof,
+            output_queues=self.output_queues,
+            output_exchanges=self.output_exchanges,
+            instance_id=self.instance_id)
+
     def _start_reviews_middleware(self):
-        self.books_middleware.stop()
+        if self.books_middleware:
+            self.books_middleware.stop()
+        self.books_middleware = None
+        self._init_books_middleware()
         self.reviews_middleware.start()
+
+    def _start_books_middleware(self):
+        if self.reviews_middleware:
+            self.reviews_middleware.stop()
+        self.reviews_middleware = None
+        self._init_reviews_middleware()
+        self.books_middleware.start()
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
@@ -77,6 +101,8 @@ class ReviewFilter:
             logging.info(" [x] Forwarded EOF")
         else:
             self.reviews_middleware.return_eof(eof_packet)
+
+        self._start_books_middleware()
 
     def _filter_review(self, review: Review):
         if review.book_title not in self.books:

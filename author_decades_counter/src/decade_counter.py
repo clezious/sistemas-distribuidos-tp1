@@ -1,4 +1,5 @@
 import logging
+from common.authors import Authors
 from common.book import Book
 from common.middleware import Middleware
 from common.eof_packet import EOFPacket
@@ -34,6 +35,7 @@ class DecadeCounter:
         logging.info(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
@@ -56,7 +58,8 @@ class DecadeCounter:
         self.authors[author].add(decade)
 
         if len(self.authors[author]) == REQUIRED_DECADES:
+            authors_packet = Authors(author)
             logging.info(
                 "Author %s has published books in %i different decades.",
                 author, REQUIRED_DECADES)
-            self.middleware.send(author.encode())
+            self.middleware.send(authors_packet.encode())

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import signal
 
 from src.sentiment_aggregator import SentimentAggregator
 from common.logs import initialize_log
@@ -14,6 +15,7 @@ def main():
     sentiment_aggregator = SentimentAggregator(input_queues,
                                                output_queues)
     logging.info("Review mean aggregator is starting")
+    signal.signal(signal.SIGTERM, lambda signum, frame: sentiment_aggregator.shutdown())
     sentiment_aggregator.start()
 
 

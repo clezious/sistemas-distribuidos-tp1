@@ -6,7 +6,8 @@ default: docker-image
 all:
 
 docker-image:
-	docker build -f ./boundary/Dockerfile -t "boundary:latest" .
+	docker build -f ./input_boundary/Dockerfile -t "input_boundary:latest" .
+	docker build -f ./output_boundary/Dockerfile -t "output_boundary:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
 	docker build -f ./book_filter/Dockerfile -t "book_filter:latest" .
 	docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .
@@ -37,12 +38,12 @@ docker-compose-logs:
 .PHONY: docker-compose-logs
 
 docker-compose-up-gen: docker-image
-	python ./docker-compose-generator/main.py
+	python3 ./docker-compose-generator/main.py
 	docker compose -f docker-compose-gen.yaml up -d --build
 .PHONY: docker-compose-up-gen
 
 docker-compose-down-gen:
-	docker compose -f docker-compose-gen.yaml stop -t 1
+	docker compose -f docker-compose-gen.yaml stop -t 2
 	docker compose -f docker-compose-gen.yaml down
 .PHONY: docker-compose-down-gen
 

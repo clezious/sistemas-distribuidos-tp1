@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import signal
 
 from common.logs import initialize_log
 from src.review_filter import ReviewFilter
@@ -19,6 +20,7 @@ def main():
                                  output_queues, output_exchanges,
                                  instance_id, cluster_size)
     logging.info("Review filter starting")
+    signal.signal(signal.SIGTERM, lambda signum, frame: review_filter.shutdown())
     review_filter.start()
 
 
