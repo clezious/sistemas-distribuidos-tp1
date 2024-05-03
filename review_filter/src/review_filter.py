@@ -57,14 +57,14 @@ class ReviewFilter:
 
     def _start_reviews_middleware(self):
         if self.books_middleware:
-            self.books_middleware.stop()
+            self.books_middleware.shutdown()
         self.books_middleware = None
         self._init_books_middleware()
         self.reviews_middleware.start()
 
     def _start_books_middleware(self):
         if self.reviews_middleware:
-            self.reviews_middleware.stop()
+            self.reviews_middleware.shutdown()
         self.reviews_middleware = None
         self._init_reviews_middleware()
         self.books_middleware.start()
