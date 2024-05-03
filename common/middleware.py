@@ -1,5 +1,5 @@
 import logging
-import signal
+import os
 from typing import Callable
 import pika
 
@@ -8,8 +8,9 @@ from common.packet_type import PacketType
 from common.packet_decoder import PacketDecoder
 from common.eof_packet import EOFPacket
 
-RABBITMQ_HOST = 'rabbitmq'
-RABBITMQ_PORT = 5672
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
+RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', '5672'))
+RABBITMQ_HEARTBEAT = int(os.getenv('RABBITMQ_PORT', '1200'))
 
 
 class Middleware:
@@ -23,7 +24,7 @@ class Middleware:
                  instance_id: int = None,
                  ):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
+            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
         self.input_queues: dict[str, str] = {}
