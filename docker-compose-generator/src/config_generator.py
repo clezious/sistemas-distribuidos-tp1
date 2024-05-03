@@ -107,7 +107,7 @@ class ConfigGenerator:
             instance_suffix = "" if instances == 1 else f"_{instance_id}"
             service_name_instance = f"{service_name}{instance_suffix}"
             current_environment = ["PYTHONUNBUFFERED=1",
-                                   "LOGGING_LEVEL=ERROR",
+                                   "LOGGING_LEVEL=INFO",
                                    "PYTHONHASHSEED=1234"]
             current_environment.extend(environment)
             current_environment.append(f"INSTANCE_ID={instance_id}")

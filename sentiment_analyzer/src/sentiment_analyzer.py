@@ -32,8 +32,8 @@ class SentimentAnalyzer:
         sentiment = TextBlob(review.text).sentiment.polarity
         stats = BookStats(review.book_title, sentiment)
         self.middleware.send(stats.encode())
-        logging.info("Review %s - Sentiment score: %f",
-                     review.book_title, sentiment)
+        logging.debug("Review %s - Sentiment score: %f",
+                      review.book_title, sentiment)
 
     def _handle_eof(self, eof_packet: EOFPacket):
         if self.instance_id not in eof_packet.ack_instances:
@@ -41,6 +41,6 @@ class SentimentAnalyzer:
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
-            logging.info("Forwarded EOF")
+            logging.debug("Forwarded EOF")
         else:
             self.middleware.return_eof(eof_packet)

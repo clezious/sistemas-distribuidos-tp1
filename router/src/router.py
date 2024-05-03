@@ -33,23 +33,23 @@ class Router:
         self.middleware.shutdown()
 
     def handle_eof(self, eof_packet: EOFPacket):
-        logging.info(f" [x] Received EOF: {eof_packet}")
+        logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode(), instance_id=0)
-            logging.info(f" [x] Sent EOF: {eof_packet}")
+            logging.debug(f" [x] Sent EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)
 
     def hash_and_route(self, book: Book, field_value):
         instance_id = hash(field_value) % (self.n_instances)
         self.middleware.send(book.encode(), instance_id)
-        logging.info(f" [x] Routed Book to instance {instance_id}")
+        logging.debug(f" [x] Routed packet to instance {instance_id}")
 
     def route_by_field_hash(self, book: Book):
-        logging.info(f" [x] Received {book}")
+        logging.debug(f" [x] Received {book}")
         field_value = book.get(self.hash_by_field)
         # if isinstance(field_value, list):
         #     for value in field_value:
