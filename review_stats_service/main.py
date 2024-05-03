@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import signal
 
 from src.review_stats_service import ReviewStatsService
 
@@ -34,6 +35,7 @@ def main():
                                        instance_id,
                                        cluster_size)
     logging.info("Review stats service %i is starting", instance_id)
+    signal.signal(signal.SIGTERM, lambda signum, frame: stats_service.shutdown())
     stats_service.start()
 
 

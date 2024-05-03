@@ -43,7 +43,7 @@ docker-compose-up-gen: docker-image
 .PHONY: docker-compose-up-gen
 
 docker-compose-down-gen:
-	docker compose -f docker-compose-gen.yaml stop -t 1
+	docker compose -f docker-compose-gen.yaml stop -t 2
 	docker compose -f docker-compose-gen.yaml down
 .PHONY: docker-compose-down-gen
 

@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 from src.output_boundary import OutputBoundary
 from common.logs import initialize_log
 
@@ -15,6 +16,7 @@ def main():
     output_boundary = OutputBoundary(port,
                                      listen_backlog,
                                      result_queues)
+    signal.signal(signal.SIGTERM, lambda signum, frame: output_boundary.shutdown())
     output_boundary.run()
 
 

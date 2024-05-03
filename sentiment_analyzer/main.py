@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import signal
 
 from src.sentiment_analyzer import SentimentAnalyzer
 
@@ -31,6 +32,8 @@ def main():
                                            instance_id,
                                            cluster_size)
     logging.info("Review sentiment analyzer %i is starting", instance_id)
+    signal.signal(signal.SIGTERM, lambda signum, frame: sentiment_analyzer.shutdown())
+
     sentiment_analyzer.start()
 
 

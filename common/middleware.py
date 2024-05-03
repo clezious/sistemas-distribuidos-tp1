@@ -35,7 +35,7 @@ class Middleware:
         self.instance_id = instance_id
         self._init_input(input_queues)
         self._init_output()
-        signal.signal(signal.SIGTERM, self._graceful_shutdown)
+        self.should_stop = False
 
     def _init_input(self, input_queues):
         for queue, exchange in input_queues.items():
@@ -57,30 +57,35 @@ class Middleware:
                 exchange=exchange, exchange_type='fanout')
 
     def start(self):
-        if self.input_queues:
-            self.channel.start_consuming()
         logging.info("Middleware started")
+        try:
+            if self.input_queues:
+                self.channel.start_consuming()
+        except OSError:
+            logging.error("Middleware shutdown")
+        except pika.exceptions.ConnectionClosedByBroker:
+            logging.error("Connection closed")
 
     def send(self, data: str, instance_id: int = None):
-        suffix = f"_{instance_id}" if instance_id is not None else ""
-        for queue in self.output_queues:
-            self.send_to_queue(f'{queue}{suffix}', data)
+        if not self.should_stop:
+            suffix = f"_{instance_id}" if instance_id is not None else ""
+            for queue in self.output_queues:
+                self.send_to_queue(f'{queue}{suffix}', data)
 
-        for exchange in self.output_exchanges:
-            self.channel.basic_publish(
-                exchange=exchange, routing_key='', body=data)
-            logging.info("Sent to exchange %s: %s", exchange, data)
+            for exchange in self.output_exchanges:
+                self.channel.basic_publish(
+                    exchange=exchange, routing_key='', body=data)
+                logging.info("Sent to exchange %s: %s", exchange, data)
 
     def send_to_queue(self, queue: str, data: str):
         self.channel.basic_publish(exchange='', routing_key=queue, body=data)
         logging.info("Sent to queue %s: %s", queue, data)
 
     def shutdown(self):
+        self.should_stop = True
         if self.input_queues:
             self.stop()
         self.connection.close()
-        self.connection = None
-        self.channel = None
         logging.info("Middleware stopped")
 
     def add_input_queue(self,
@@ -151,6 +156,3 @@ class Middleware:
             self.channel.basic_publish(
                 exchange='', routing_key=queue, body=data)
             logging.info("Sent to queue %s: %s", queue, data)
-
-    def _graceful_shutdown(self):
-        self.shutdown()

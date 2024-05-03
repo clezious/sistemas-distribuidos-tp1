@@ -1,5 +1,4 @@
 import logging
-import signal
 import socket
 from common.middleware import Middleware
 from common.packet import Packet
@@ -20,9 +19,11 @@ class OutputBoundary():
 
         logging.info("Listening for connections and replying results")
 
-    def run(self):
-        signal.signal(signal.SIGTERM, self.__graceful_shutdown)
+    def shutdown(self):
+        logging.error("Graceful shutdown")
+        self.middleware.shutdown()
 
+    def run(self):
         while True:
             client_socket, address = self.server_socket.accept()
             logging.info("Connection from %s", address)
@@ -76,7 +77,3 @@ class OutputBoundary():
         self.client_socket = client_socket
         self._init_middleware()
         self.middleware.start()
-
-    def __graceful_shutdown(self, signum, frame):
-        # TODO: Implement graceful shutdown
-        raise NotImplementedError("Graceful shutdown not implemented")

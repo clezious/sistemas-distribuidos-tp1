@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import signal
 
 from src.decade_counter import DecadeCounter
 from common.logs import initialize_log
@@ -13,10 +14,8 @@ def main():
     instance_id = json.loads(os.getenv("INSTANCE_ID") or '0')
     cluster_size = json.loads(os.getenv("CLUSTER_SIZE") or '0')
 
-    counter = DecadeCounter(input_queues=input_queues,
-                            output_queues=output_queues,
-                            instance_id=instance_id,
-                            cluster_size=cluster_size)
+    counter = DecadeCounter(input_queues=input_queues, output_queues=output_queues, instance_id=instance_id, cluster_size=cluster_size)
+    signal.signal(signal.SIGTERM, lambda signum, frame: counter.shutdown())
     logging.info("Decade counter starting")
     counter.start()
 

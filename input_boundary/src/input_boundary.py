@@ -1,5 +1,4 @@
 import logging
-import signal
 import socket
 
 from .boundary_type import BoundaryType
@@ -22,22 +21,23 @@ class InputBoundary():
         self.server_socket = server_socket
         self.port = port
         self.boundary_type = boundary_type
-
-        self.broker_connection = Middleware(output_exchanges=[output_exchange])
+        self.should_stop = False
+        self.middleware = Middleware(output_exchanges=[output_exchange])
         logging.info(
             "Listening for connections and redirecting to %s", output_exchange)
 
     def run(self):
-        signal.signal(signal.SIGTERM, self.__graceful_shutdown)
-
-        while True:
-            client_socket, address = self.server_socket.accept()
-            logging.info("Connection from %s", address)
-            with client_socket:
+        while self.should_stop is False:
+            try:
+                client_socket, address = self.server_socket.accept()
+                logging.info("Connection from %s", address)
                 self.__handle_client_connection(client_socket)
+            except OSError:
+                logging.error("Server socket closed")
+                continue
 
     def __handle_client_connection(self, client_socket: socket.socket):
-        while True:
+        while self.should_stop is False:
             try:
                 data = receive_line(
                     client_socket, LENGTH_BYTES).decode().strip()
@@ -48,16 +48,22 @@ class InputBoundary():
                 elif self.boundary_type == BoundaryType.REVIEW:
                     packet = Review.from_csv_row(data)
                 if packet:
-                    self.broker_connection.send(packet.encode())
+                    self.middleware.send(packet.encode())
             except EOFError:
                 logging.info("EOF reached")
                 eof_packet = EOFPacket()
-                self.broker_connection.send(eof_packet.encode())
+                self.middleware.send(eof_packet.encode())
                 break
             except ConnectionResetError:
                 logging.info("Connection closed by client")
                 break
+            except OSError:
+                logging.error("Socket closed")
+                break
 
-    def __graceful_shutdown(self, signum, frame):
-        # TODO: Implement graceful shutdown
-        raise NotImplementedError("Graceful shutdown not implemented")
+    def shutdown(self):
+        logging.error("Graceful shutdown")
+        self.should_stop = True
+        self.middleware.shutdown()
+        self.server_socket.shutdown(socket.SHUT_RDWR)
+        self.server_socket.close()
