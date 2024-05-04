@@ -38,7 +38,9 @@ class ClientReceiver():
     def save_query_to_csv_file(self, query: int, file_path: str):
         with open(file_path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',',
-                                quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                                quotechar='"',
+                                quoting=csv.QUOTE_MINIMAL,
+                                lineterminator='\n')
             for row in self.results[query]:
                 writer.writerow(row)
 
