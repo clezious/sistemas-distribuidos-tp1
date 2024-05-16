@@ -16,58 +16,67 @@ class ReviewFilter:
                  cluster_size: int):
         self.book_input_queue = book_input_queue
         self.review_input_queue = review_input_queue
-        self.books_middleware = None
-        self.reviews_middleware = None
+        self.middleware = None
+        # self.reviews_middleware = None
         self.instance_id = instance_id
         self.cluster_size = cluster_size
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.books = {}
-        self._init_books_middleware()
-        self._init_reviews_middleware()
+        self._init_middleware()
+        # self._init_reviews_middleware()
 
     def start(self):
-        self.books_middleware.start()
+        self.middleware.start()
 
     def shutdown(self):
         logging.info("Graceful shutdown")
-        self.books_middleware.shutdown()
-        self.reviews_middleware.shutdown()
+        self.middleware.shutdown()
 
-    def _init_books_middleware(self):
+    def _init_middleware(self):
         logging.info("Initializing Books Middleware")
-        self.books_middleware = Middleware(
+        self.middleware = Middleware(
             input_queues={self.book_input_queue[0]: self.book_input_queue[1]},
             callback=self._add_book,
             eof_callback=self.handle_books_eof,
             output_queues=self.output_queues,
             output_exchanges=self.output_exchanges,
             instance_id=self.instance_id)
+        self.middleware.add_input_queue(
+            self.book_input_queue[0],
+            self._add_book,
+            self.handle_books_eof,
+            exchange=self.book_input_queue[1])
+        # self.middleware.add_input_queue(
+        #     self.review_input_queue[0],
+        #     self._filter_review,
+        #     self.handle_reviews_eof,
+        #     exchange=self.review_input_queue[1])
 
-    def _init_reviews_middleware(self):
-        logging.info("Initializing Reviews Middleware")
-        self.reviews_middleware = Middleware(
-            input_queues={
-                self.review_input_queue[0]: self.review_input_queue[1]},
-            callback=self._filter_review,
-            eof_callback=self.handle_reviews_eof,
-            output_queues=self.output_queues,
-            output_exchanges=self.output_exchanges,
-            instance_id=self.instance_id)
+    # def _init_reviews_middleware(self):
+    #     logging.info("Initializing Reviews Middleware")
+    #     self.reviews_middleware = Middleware(
+    #         input_queues={
+    #             self.review_input_queue[0]: self.review_input_queue[1]},
+    #         callback=self._filter_review,
+    #         eof_callback=self.handle_reviews_eof,
+    #         output_queues=self.output_queues,
+    #         output_exchanges=self.output_exchanges,
+    #         instance_id=self.instance_id)
 
-    def _start_reviews_middleware(self):
-        if self.books_middleware:
-            self.books_middleware.shutdown()
-        self.books_middleware = None
-        self._init_books_middleware()
-        self.reviews_middleware.start()
+    # def _start_reviews_middleware(self):
+    #     if self.books_middleware:
+    #         self.books_middleware.shutdown()
+    #     self.books_middleware = None
+    #     self._init_books_middleware()
+    #     self.reviews_middleware.start()
 
-    def _start_books_middleware(self):
-        if self.reviews_middleware:
-            self.reviews_middleware.shutdown()
-        self.reviews_middleware = None
-        self._init_reviews_middleware()
-        self.books_middleware.start()
+    # def _start_books_middleware(self):
+    #     if self.reviews_middleware:
+    #         self.reviews_middleware.shutdown()
+    #     self.reviews_middleware = None
+    #     self._init_reviews_middleware()
+    #     self.books_middleware.start()
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
@@ -80,7 +89,7 @@ class ReviewFilter:
         logging.info("Filter reset")
 
     def handle_books_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received Books EOF: {eof_packet}")
+        logging.info(f" [x] Received Books EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
@@ -90,21 +99,32 @@ class ReviewFilter:
             self.books_middleware.return_eof(eof_packet)
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
-        self._start_reviews_middleware()
+        self.middleware.cancel(f"{self.book_input_queue[0]}_{self.instance_id}")
+        self.middleware.add_input_queue(
+            f"{self.review_input_queue[0]}_{self.instance_id}",
+            self._filter_review,
+            self.handle_reviews_eof,
+            exchange=self.review_input_queue[1])
+        logging.info(" [x] Switched to Reviews Middleware")
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received Reviews EOF: {eof_packet}")
+        logging.info(f" [x] Received Reviews EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self._reset_filter()
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self.reviews_middleware.send(EOFPacket().encode())
+            self.middleware.send(EOFPacket().encode())
             logging.debug(" [x] Forwarded EOF")
         else:
-            self.reviews_middleware.return_eof(eof_packet)
+            self.middleware.return_eof(eof_packet)
 
-        self._start_books_middleware()
+        self.middleware.cancel(f"{self.review_input_queue[0]}_{self.instance_id}")
+        self.middleware.add_input_queue(
+            f"{self.book_input_queue[0]}_{self.instance_id}",
+            self._add_book,
+            self.handle_books_eof,
+            exchange=self.book_input_queue[1])
 
     def _filter_review(self, review: Review):
         if review.book_title not in self.books:
@@ -116,5 +136,5 @@ class ReviewFilter:
             review.score,
             review.text,
             author)
-        self.reviews_middleware.send(review_and_author.encode())
+        self.middleware.send(review_and_author.encode())
         logging.debug("Filter passed - review for: %s", review.book_title)

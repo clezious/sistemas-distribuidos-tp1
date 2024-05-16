@@ -20,9 +20,10 @@ class InputBoundary():
         server_socket.listen(backlog)
         self.server_socket = server_socket
         self.port = port
+        self.output_exchange = output_exchange
         self.boundary_type = boundary_type
         self.should_stop = False
-        self.middleware = Middleware(output_exchanges=[output_exchange])
+        self.middleware = None
         logging.info(
             "Listening for connections and redirecting to %s", output_exchange)
 
@@ -30,11 +31,16 @@ class InputBoundary():
         while self.should_stop is False:
             try:
                 client_socket, address = self.server_socket.accept()
+                self.middleware = Middleware(output_exchanges=[self.output_exchange])
                 logging.info("Connection from %s", address)
                 self.__handle_client_connection(client_socket)
             except OSError:
                 logging.error("Server socket closed")
                 continue
+            finally:
+                client_socket.close()
+                self.middleware.shutdown()
+                self.middleware = None
 
     def __handle_client_connection(self, client_socket: socket.socket):
         while self.should_stop is False:

@@ -24,7 +24,7 @@ class Middleware:
                  instance_id: int = None,
                  ):
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
+            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
         self.input_queues: dict[str, str] = {}
@@ -34,6 +34,7 @@ class Middleware:
         self.eof_callback = eof_callback
         self.n_output_instances = n_output_instances
         self.instance_id = instance_id
+        self.consumer_tags = {}
         self._init_input(input_queues)
         self._init_output()
         self.should_stop = False
@@ -42,7 +43,10 @@ class Middleware:
         for queue, exchange in input_queues.items():
             suffix = "" if self.instance_id is None else f'_{self.instance_id}'
             self.add_input_queue(
-                f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
+                f'{queue}{suffix}',
+                self.callback,
+                self.eof_callback,
+                exchange=exchange)
 
     def _init_output(self):
         if self.n_output_instances is None:
@@ -105,10 +109,11 @@ class Middleware:
         wrapped_callback = self._callback_wrapper(callback,
                                                   eof_callback,
                                                   auto_ack)
-        self.channel.basic_consume(
+        consumer_tag = self.channel.basic_consume(
             queue=input_queue,
             on_message_callback=wrapped_callback,
             auto_ack=auto_ack)
+        self.consumer_tags[input_queue] = consumer_tag
 
         if input_queue not in self.input_queues:
             self.input_queues[input_queue] = exchange
@@ -148,6 +153,12 @@ class Middleware:
     def stop(self):
         self.channel.stop_consuming()
         logging.info("Middleware stopped consuming messages")
+
+    def cancel(self, queue: str):
+        self.channel.basic_cancel(self.consumer_tags[queue])
+        logging.info("Middleware stopped consuming messages from %s", queue)
+        del self.consumer_tags[queue]
+        del self.input_queues[queue]
 
     def return_eof(self, eof_packet: EOFPacket):
         data = eof_packet.encode()
