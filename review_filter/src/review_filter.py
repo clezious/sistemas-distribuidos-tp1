@@ -64,7 +64,7 @@ class ReviewFilter:
         if len(eof_packet.ack_instances) == self.cluster_size:
             logging.debug(f" [x] Finished propagating Books EOF: {eof_packet}")
         else:
-            self.books_middleware.return_eof(eof_packet)
+            self.middleware.return_eof(eof_packet)
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
         self._switch_to_reviews()
