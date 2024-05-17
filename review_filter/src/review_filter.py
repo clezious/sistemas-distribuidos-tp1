@@ -17,14 +17,12 @@ class ReviewFilter:
         self.book_input_queue = book_input_queue
         self.review_input_queue = review_input_queue
         self.middleware = None
-        # self.reviews_middleware = None
         self.instance_id = instance_id
         self.cluster_size = cluster_size
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.books = {}
         self._init_middleware()
-        # self._init_reviews_middleware()
 
     def start(self):
         self.middleware.start()
@@ -47,36 +45,6 @@ class ReviewFilter:
             self._add_book,
             self.handle_books_eof,
             exchange=self.book_input_queue[1])
-        # self.middleware.add_input_queue(
-        #     self.review_input_queue[0],
-        #     self._filter_review,
-        #     self.handle_reviews_eof,
-        #     exchange=self.review_input_queue[1])
-
-    # def _init_reviews_middleware(self):
-    #     logging.info("Initializing Reviews Middleware")
-    #     self.reviews_middleware = Middleware(
-    #         input_queues={
-    #             self.review_input_queue[0]: self.review_input_queue[1]},
-    #         callback=self._filter_review,
-    #         eof_callback=self.handle_reviews_eof,
-    #         output_queues=self.output_queues,
-    #         output_exchanges=self.output_exchanges,
-    #         instance_id=self.instance_id)
-
-    # def _start_reviews_middleware(self):
-    #     if self.books_middleware:
-    #         self.books_middleware.shutdown()
-    #     self.books_middleware = None
-    #     self._init_books_middleware()
-    #     self.reviews_middleware.start()
-
-    # def _start_books_middleware(self):
-    #     if self.reviews_middleware:
-    #         self.reviews_middleware.shutdown()
-    #     self.reviews_middleware = None
-    #     self._init_reviews_middleware()
-    #     self.books_middleware.start()
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
@@ -99,13 +67,7 @@ class ReviewFilter:
             self.books_middleware.return_eof(eof_packet)
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
-        self.middleware.cancel(f"{self.book_input_queue[0]}_{self.instance_id}")
-        self.middleware.add_input_queue(
-            f"{self.review_input_queue[0]}_{self.instance_id}",
-            self._filter_review,
-            self.handle_reviews_eof,
-            exchange=self.review_input_queue[1])
-        logging.info(" [x] Switched to Reviews Middleware")
+        self._switch_to_reviews()
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
         logging.info(f" [x] Received Reviews EOF: {eof_packet}")
@@ -119,12 +81,7 @@ class ReviewFilter:
         else:
             self.middleware.return_eof(eof_packet)
 
-        self.middleware.cancel(f"{self.review_input_queue[0]}_{self.instance_id}")
-        self.middleware.add_input_queue(
-            f"{self.book_input_queue[0]}_{self.instance_id}",
-            self._add_book,
-            self.handle_books_eof,
-            exchange=self.book_input_queue[1])
+        self._switch_to_books()
 
     def _filter_review(self, review: Review):
         if review.book_title not in self.books:
@@ -138,3 +95,21 @@ class ReviewFilter:
             author)
         self.middleware.send(review_and_author.encode())
         logging.debug("Filter passed - review for: %s", review.book_title)
+
+    def _switch_to_reviews(self):
+        self.middleware.cancel(self.book_input_queue[0])
+        self.middleware.add_input_queue(
+            self.review_input_queue[0],
+            self._filter_review,
+            self.handle_reviews_eof,
+            exchange=self.review_input_queue[1])
+        logging.info("Switched to Reviews Middleware")
+
+    def _switch_to_books(self):
+        self.middleware.cancel(self.review_input_queue[0])
+        self.middleware.add_input_queue(
+            self.book_input_queue[0],
+            self._add_book,
+            self.handle_books_eof,
+            exchange=self.book_input_queue[1])
+        logging.info("Switched to Books Middleware")

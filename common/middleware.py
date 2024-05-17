@@ -41,9 +41,8 @@ class Middleware:
 
     def _init_input(self, input_queues):
         for queue, exchange in input_queues.items():
-            suffix = "" if self.instance_id is None else f'_{self.instance_id}'
             self.add_input_queue(
-                f'{queue}{suffix}',
+                queue,
                 self.callback,
                 self.eof_callback,
                 exchange=exchange)
@@ -100,6 +99,8 @@ class Middleware:
                         exchange: str = "",
                         exchange_type: str = "fanout",
                         auto_ack=True):
+        suffix = "" if self.instance_id is None else f'_{self.instance_id}'
+        input_queue = input_queue + suffix
         self.channel.queue_declare(queue=input_queue)
         if exchange:
             self.channel.exchange_declare(
@@ -155,6 +156,8 @@ class Middleware:
         logging.info("Middleware stopped consuming messages")
 
     def cancel(self, queue: str):
+        suffix = "" if self.instance_id is None else f'_{self.instance_id}'
+        queue = queue + suffix
         self.channel.basic_cancel(self.consumer_tags[queue])
         logging.info("Middleware stopped consuming messages from %s", queue)
         del self.consumer_tags[queue]
