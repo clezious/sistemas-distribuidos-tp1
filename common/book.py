@@ -15,7 +15,9 @@ class Book(Packet):
                  authors: str,
                  publisher: str,
                  year: int,
-                 categories: str):
+                 categories: str,
+                 trace_id: str = None):
+        super().__init__(trace_id)
         self.title = title
         self.description = description
         self.authors = authors
@@ -69,15 +71,14 @@ class Book(Packet):
             return []
 
     @staticmethod
-    def decode(fields: list[str]):
+    def decode(fields: list[str], trace_id: str) -> 'Book':
         title = fields[0]
         description = fields[1]
         authors = fields[2]
         publisher = fields[3]
         year = fields[4]
         categories = fields[5]
-        return Book(title, description, authors, publisher, year, categories)
+        return Book(title, description, authors, publisher, year, categories, trace_id)
 
     def __str__(self):
         return self.encode()
-

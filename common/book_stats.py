@@ -5,7 +5,9 @@ from common.packet import Packet
 class BookStats(Packet):
     def __init__(self,
                  title: str,
-                 score: float):
+                 score: float,
+                 trace_id: str = None):
+        super().__init__(trace_id)
         self.title = title
         self.score = score
 
@@ -19,16 +21,16 @@ class BookStats(Packet):
                 self.score]
 
     @staticmethod
-    def decode(fields: list[str]):
+    def decode(fields: list[str], trace_id: str) -> 'BookStats':
         title = fields[0]
         score = fields[1]
-        return BookStats(title, score)
-    
+        return BookStats(title, score, trace_id)
+
     def __lt__(self, other: 'BookStats'):
         return self.score < other.score
-    
+
     def __eq__(self, other: 'BookStats'):
         return self.score == other.score
-    
+
     def __gt__(self, other: 'BookStats'):
         return self.score > other.score

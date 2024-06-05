@@ -54,9 +54,9 @@ class ReviewStatsService:
 
     def _send_book_stats(self, book_title: str, stats: dict):
         average_score = stats["total_rating"] / stats["total_reviews"]
-        stats = BookStats(book_title, average_score)
+        book_stats = BookStats(book_title, average_score, stats["trace_id"])
         self.middleware.send_to_queue(
-            self.top_books_queue, stats.encode())
+            self.top_books_queue, book_stats.encode())
 
     def _send_top_books(self):
         books_required_reviews = self._get_books_with_required_reviews()
@@ -90,6 +90,7 @@ class ReviewStatsService:
                 "total_reviews": 0,
                 "total_rating": 0,
                 "authors": review.authors,
+                "trace_id": review.trace_id,
             }
 
         self._update_review_stats(review)
@@ -97,7 +98,7 @@ class ReviewStatsService:
 
         total_reviews = self.book_reviews[review.book_title]["total_reviews"]
         if total_reviews == REQUIRED_TOTAL_REVIEWS:
-            book = Book(review.book_title, "", review.authors, "", -1, [])
+            book = Book(review.book_title, "", review.authors, "", -1, [], review.trace_id)
             self.middleware.send_to_queue(
                 self.required_reviews_books_queue,
                 book.encode())

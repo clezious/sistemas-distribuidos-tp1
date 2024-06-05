@@ -5,7 +5,12 @@ from common.packet import Packet
 
 
 class Review(Packet):
-    def __init__(self, book_title: str, score: float, text: str):
+    def __init__(self,
+                 book_title: str,
+                 score: float,
+                 text: str,
+                 trace_id: str = None):
+        super().__init__(trace_id)
         self.book_title = book_title
         self.score = score
         self.text = text
@@ -29,12 +34,12 @@ class Review(Packet):
         return Review(title, score, text)
 
     @staticmethod
-    def decode(fields: list[str]):
+    def decode(fields: list[str], trace_id: str) -> 'Review':
         title = fields[0]
         score = fields[1]
         text = fields[2]
 
-        return Review(title, score, text)
+        return Review(title, score, text, trace_id)
 
     def __str__(self):
         return self.encode()
