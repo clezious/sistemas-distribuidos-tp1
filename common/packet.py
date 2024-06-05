@@ -21,7 +21,7 @@ class Packet(ABC):
 
     @staticmethod
     @abstractmethod
-    def decode(data: str) -> 'Packet':
+    def decode(fields: list[str]) -> "Packet":
         pass
 
     def __str__(self):

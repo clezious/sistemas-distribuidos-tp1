@@ -9,3 +9,4 @@ class PacketType(Enum):
     REVIEW_AND_AUTHOR = 4
     RESULT = 5
     AUTHORS = 6
+    WRAPPER = 7

@@ -10,7 +10,7 @@ from common.review import Review
 from common.review_and_author import ReviewAndAuthor
 
 
-class PacketDecoder():
+class PacketDecoder:
     @staticmethod
     def decode(body: str):
         fields = json.loads(body)

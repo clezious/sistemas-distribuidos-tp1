@@ -7,6 +7,7 @@ from common.packet import Packet
 from common.packet_type import PacketType
 from common.packet_decoder import PacketDecoder
 from common.eof_packet import EOFPacket
+from common.packet_wrapper import PacketWrapper
 
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', '5672'))
@@ -120,7 +121,8 @@ class Middleware:
                           ):
 
         def wrapper(ch, method, properties, body):
-            packet = PacketDecoder.decode(body)
+            packet_wrapper = PacketWrapper.decode(body)
+            packet = packet_wrapper.internal_packet
 
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")
