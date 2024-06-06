@@ -115,6 +115,7 @@ class ReviewFilter:
             review.book_title,
             review.score,
             review.text,
-            author)
+            author,
+            review.trace_id)
         self.reviews_middleware.send(review_and_author.encode())
         logging.debug("Filter passed - review for: %s", review.book_title)

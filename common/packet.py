@@ -5,6 +5,9 @@ from common.packet_type import PacketType
 
 
 class Packet(ABC):
+    def __init__(self, client_id: int, packet_id: int):
+        self.client_id = client_id
+        self.packet_id = packet_id
 
     @property
     @abstractmethod
@@ -17,7 +20,14 @@ class Packet(ABC):
         pass
 
     def encode(self) -> str:
-        return json.dumps([self.packet_type.value, self.payload])
+        return json.dumps(
+            [
+                self.client_id,
+                self.packet_id,
+                self.packet_type.value,
+                self.payload
+            ]
+        )
 
     @staticmethod
     @abstractmethod

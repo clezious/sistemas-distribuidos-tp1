@@ -30,7 +30,7 @@ class SentimentAggregator:
         stats: list[BookStats] = []
         for title, book_stats in self.books_stats.items():
             average_score = book_stats["total_score"] / book_stats["total_reviews"]
-            stats.append(BookStats(title, average_score))
+            stats.append(BookStats(title, average_score, book_stats["trace_id"]))
         stats.sort(key=lambda x: x.score)
         percentile_90_score = stats[int(len(stats) * (PERCENTILE / 100))].score
         logging.info("90th percentile score: %f", percentile_90_score)
@@ -48,6 +48,7 @@ class SentimentAggregator:
             self.books_stats[book_stats.title] = {
                 "total_score": 0,
                 "total_reviews": 0,
+                "trace_id": book_stats.trace_id
             }
         self.books_stats[book_stats.title]["total_score"] += book_stats.score
         self.books_stats[book_stats.title]["total_reviews"] += 1

@@ -7,7 +7,6 @@ from common.packet import Packet
 from common.packet_type import PacketType
 from common.packet_decoder import PacketDecoder
 from common.eof_packet import EOFPacket
-from common.packet_wrapper import PacketWrapper
 
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', '5672'))
@@ -24,8 +23,8 @@ class Middleware:
                  n_output_instances: int = None,
                  instance_id: int = None,
                  ):
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+            RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
         self.input_queues: dict[str, str] = {}
@@ -43,7 +42,8 @@ class Middleware:
         for queue, exchange in input_queues.items():
             suffix = "" if self.instance_id is None else f'_{self.instance_id}'
             self.add_input_queue(
-                f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
+                f'{queue}{suffix}', self.callback, self.eof_callback,
+                exchange=exchange)
 
     def _init_output(self):
         if self.n_output_instances is None:
@@ -121,8 +121,7 @@ class Middleware:
                           ):
 
         def wrapper(ch, method, properties, body):
-            packet_wrapper = PacketWrapper.decode(body)
-            packet = packet_wrapper.internal_packet
+            packet = PacketDecoder.decode(body)
 
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")

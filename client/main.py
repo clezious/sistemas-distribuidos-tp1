@@ -48,14 +48,14 @@ def main():
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     book_client = ClientSender(
-        "../datasets/books_data.csv",
+        "../datasets/books_data_test.csv",
         config_params["book_boundary_ip"],
         config_params["book_boundary_port"])
     book_client.run()
     logging.info("Sent all books")
 
     review_client = ClientSender(
-        "../datasets/Books_rating.csv",
+        "../datasets/Books_rating_test.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"])
     review_client.run()
