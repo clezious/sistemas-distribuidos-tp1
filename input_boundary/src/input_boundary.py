@@ -11,6 +11,7 @@ import multiprocessing
 
 MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
+QUEUE_SIZE = 10000
 
 
 class InputBoundary:
@@ -24,18 +25,24 @@ class InputBoundary:
         self.port = port
         self.boundary_type = boundary_type
         self.should_stop = False
-        self.middleware = None
         self.output_exchange = output_exchange
         self.processes = []
+        self.packet_queue = multiprocessing.Queue(maxsize=QUEUE_SIZE)
+        self.middleware_sender_process = None
         logging.info(
             "Listening for connections and redirecting to %s", output_exchange)
 
     def run(self):
         client_id = 0
+        self.middleware_sender_process = multiprocessing.Process(
+            target=self.__middleware_sender)
+        self.middleware_sender_process.start()
         while self.should_stop is False:
             try:
                 client_socket, address = self.socket.accept()
-                logging.info("Connection from %s", address)
+                logging.info(
+                    "Connection from %s - Assigning client id: %s", address,
+                    client_id)
                 process = multiprocessing.Process(
                     target=self.__handle_client_connection,
                     args=(client_socket, client_id),
@@ -47,11 +54,22 @@ class InputBoundary:
                 logging.error("Server socket closed")
                 continue
 
+    def __middleware_sender(self):
+        logging.info("Middleware sender started")
+        self.middleware = Middleware(output_exchanges=[self.output_exchange])
+        while self.should_stop is False:
+            try:
+                packet = self.packet_queue.get(block=True)
+                self.middleware.send(packet.encode())
+            except OSError:
+                logging.error("Middleware closed")
+                break
+
     def __handle_client_connection(
             self, client_socket: socket.socket, client_id: int):
         self.processes = []
         self.socket = client_socket
-        self.middleware = Middleware(output_exchanges=[self.output_exchange])
+        self.middleware_sender_process = None
         message_id = 0
         while self.should_stop is False:
             try:
@@ -64,12 +82,12 @@ class InputBoundary:
                 elif self.boundary_type == BoundaryType.REVIEW:
                     packet = Review.from_csv_row(data, client_id, message_id)
                 if packet:
-                    self.middleware.send(packet.encode())
+                    self.packet_queue.put(packet)
                     message_id += 1
             except EOFError:
-                logging.info("EOF reached")
+                logging.info("EOF reached %s", client_id)
                 eof_packet = EOFPacket(client_id, message_id)
-                self.middleware.send(eof_packet.encode())
+                self.packet_queue.put(eof_packet)
                 break
             except ConnectionResetError:
                 logging.info("Connection closed by client")
@@ -83,6 +101,9 @@ class InputBoundary:
         self.should_stop = True
         self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
-        self.middleware.shutdown()
+        if self.middleware:
+            self.middleware.shutdown()
         for process in self.processes:
             process.join()
+        if self.middleware_sender_process:
+            self.middleware_sender_process.join()
