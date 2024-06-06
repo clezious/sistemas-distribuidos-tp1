@@ -72,7 +72,7 @@ class ReviewStatsService:
         logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
-            self._send_top_books()  # TODO: Check this
+            self._send_top_books()
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(EOFPacket().encode())
