@@ -130,7 +130,7 @@ class Middleware:
             packet = PacketDecoder.decode(body)
             should_ack = True
             if packet.packet_type == PacketType.EOF:
-                logging.info("Received EOF packet")
+                logging.debug("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
             else:
