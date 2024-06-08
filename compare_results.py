@@ -45,12 +45,12 @@ def compare_files_with_rounding(file1, file2):
 
 
 def main():
-    compare_files('datasets/query_1.csv', 'kaggle_results/query_1_kaggle.csv')
-    compare_files('datasets/query_2.csv', 'kaggle_results/query_2_kaggle.csv')
-    compare_files('datasets/query_3.csv', 'kaggle_results/query_3_kaggle.csv')
-    compare_files('datasets/query_4.csv', 'kaggle_results/query_4_kaggle.csv')
+    compare_files('output/query_1.csv', 'kaggle_results/query_1_kaggle.csv')
+    compare_files('output/query_2.csv', 'kaggle_results/query_2_kaggle.csv')
+    compare_files('output/query_3.csv', 'kaggle_results/query_3_kaggle.csv')
+    compare_files('output/query_4.csv', 'kaggle_results/query_4_kaggle.csv')
     compare_files_with_rounding(
-        'datasets/query_5.csv', 'kaggle_results/query_5_kaggle.csv')
+        'output/query_5.csv', 'kaggle_results/query_5_kaggle.csv')
 
 
 if __name__ == '__main__':
