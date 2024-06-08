@@ -7,10 +7,13 @@ from common.packet import Packet
 from common.packet_type import PacketType
 from common.packet_decoder import PacketDecoder
 from common.eof_packet import EOFPacket
+from common.persistence_manager import PersistenceManager
 
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', '5672'))
-RABBITMQ_HEARTBEAT = int(os.getenv('RABBITMQ_PORT', '1200'))
+RABBITMQ_HEARTBEAT = int(os.getenv('RABBITMQ_HEARTBEAT', '1200'))
+
+PROCESSED_KEY = 'processed'
 
 
 class Middleware:
@@ -22,6 +25,7 @@ class Middleware:
                  output_exchanges: list[str] = [],
                  n_output_instances: int = None,
                  instance_id: int = None,
+                 persistence_manager: PersistenceManager = None,
                  ):
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
@@ -37,6 +41,9 @@ class Middleware:
         self._init_input(input_queues)
         self._init_output()
         self.should_stop = False
+        self.persistence_manager = persistence_manager
+        self.state = {}
+        self.init_state()
 
     def _init_input(self, input_queues):
         for queue, exchange in input_queues.items():
@@ -121,22 +128,22 @@ class Middleware:
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
-
+            should_ack = True
             if packet.packet_type == PacketType.EOF:
-                logging.debug("Received EOF packet")
+                logging.info("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
-                if not auto_ack:
-                    self.ack(method.delivery_tag)
             else:
-                # Check if auto ack is on
-                should_ack = callback(packet)
-                if not auto_ack:
-                    if should_ack:
-                        self.ack(method.delivery_tag)
-                    else:
-                        self.nack(method.delivery_tag)
+                if not self.is_duplicate(packet.trace_id):
+                    should_ack = callback(packet)
+                    # WARNING: A failure in this line could lead to a packet being processed twice!
+                    self.mark_as_processed(packet.trace_id)
 
+            if not auto_ack:
+                if should_ack:
+                    self.ack(method.delivery_tag)
+                else:
+                    self.nack(method.delivery_tag)
         return wrapper
 
     def ack(self, delivery_tag):
@@ -157,3 +164,24 @@ class Middleware:
             self.channel.basic_publish(
                 exchange='', routing_key=queue, body=data)
             logging.debug("Sent to queue %s: %s", queue, data)
+
+    def is_duplicate(self, trace_id: str) -> bool:
+        if self.persistence_manager:
+            processed_traces = self.state[PROCESSED_KEY]
+            if trace_id in processed_traces:
+                logging.debug(f"Packet {trace_id} is a duplicate!")
+                return True
+        return False
+
+    def mark_as_processed(self, trace_id: str):
+        if self.persistence_manager:
+            self.state[PROCESSED_KEY].append(trace_id)
+            self.persistence_manager.append(PROCESSED_KEY, trace_id)
+            logging.debug(f"Marked {trace_id} as processed")
+
+    def init_state(self):
+        if self.persistence_manager:
+            self.state[PROCESSED_KEY] = self.persistence_manager.get(PROCESSED_KEY).splitlines()
+            logging.debug(f"Initialized state with {self.state[PROCESSED_KEY]}")
+        else:
+            logging.debug("No persistence manager, skipping state initialization")
