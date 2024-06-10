@@ -164,4 +164,4 @@ docker-compose-gen.yaml
 .DS_Store
 docker-compose-generator/config.ini
 .vscode
-output
+outputs
