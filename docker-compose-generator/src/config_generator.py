@@ -100,12 +100,14 @@ class ConfigGenerator:
                           image: str,
                           environment: list[str],
                           networks: list[str],
-                          volumes: list[str] = [],
+                          volumes: list[str] = None,
                           depends_on: list[str] = [],
                           input_queues: dict[str, str] = None,
                           output_queues: list[str] = None,
                           output_exchanges: list[str] = None,
                           instances: int = 1):
+        if volumes is None:
+            volumes = []
         volumes.append("storage:/storage")
         for instance_id in range(instances):
             instance_suffix = "" if instances == 1 else f"_{instance_id}"

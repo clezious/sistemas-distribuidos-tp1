@@ -9,10 +9,10 @@ docker-image:
 	docker build -f ./input_boundary/Dockerfile -t "input_boundary:latest" .
 	docker build -f ./output_boundary/Dockerfile -t "output_boundary:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
-	# docker build -f ./book_filter/Dockerfile -t "book_filter:latest" .
-	# docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .
-	# docker build -f ./author_decades_counter/Dockerfile -t "author_decades_counter:latest" .
-	# docker build -f ./router/Dockerfile -t "router:latest" .
+	docker build -f ./book_filter/Dockerfile -t "book_filter:latest" .
+	docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .
+	docker build -f ./author_decades_counter/Dockerfile -t "author_decades_counter:latest" .
+	docker build -f ./router/Dockerfile -t "router:latest" .
 	# docker build -f ./review_stats_service/Dockerfile -t "review_stats_service:latest" .
 	# docker build -f ./sentiment_analyzer/Dockerfile -t "sentiment_analyzer:latest" .
 	# docker build -f ./sentiment_aggregator/Dockerfile -t "sentiment_aggregator:latest" .
@@ -39,7 +39,7 @@ docker-compose-logs:
 
 docker-compose-up-gen: docker-image
 	-docker volume rm tp1_storage
-	python3 ./docker-compose-generator/main.py
+	# python3 ./docker-compose-generator/main.py
 	docker compose -f docker-compose-gen.yaml up -d --build
 .PHONY: docker-compose-up-gen
 
