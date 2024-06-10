@@ -20,11 +20,11 @@ class EOFPacket(Packet):
         return [self.ack_instances]
 
     @staticmethod
-    def decode(fields: list[str]) -> 'EOFPacket':
-        client_id = fields[0]
-        packet_id = fields[1]
-        ack_instances = fields[2]
-        return EOFPacket(ack_instances, client_id, packet_id)
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'EOFPacket':
+        ack_instances = fields[0]
+        return EOFPacket(client_id, packet_id, ack_instances)
 
     def __str__(self):
         return self.encode()

@@ -15,21 +15,22 @@ class PacketDecoder:
     @staticmethod
     def decode(body: str) -> 'Packet':
         fields = json.loads(body)
-        trace_id = fields[0]
-        packet_type = PacketType(fields[1])
-        packet_payload = fields[2]
+        client_id = fields[0]
+        packet_id = fields[1]
+        packet_type = PacketType(fields[2])
+        packet_payload = fields[3]
         if packet_type == PacketType.BOOK:
-            return Book.decode(packet_payload, trace_id)
+            return Book.decode(packet_payload, client_id, packet_id)
         elif packet_type == PacketType.REVIEW:
-            return Review.decode(packet_payload, trace_id)
+            return Review.decode(packet_payload, client_id, packet_id)
         elif packet_type == PacketType.EOF:
-            return EOFPacket.decode(packet_payload, trace_id)
+            return EOFPacket.decode(packet_payload, client_id, packet_id)
         elif packet_type == PacketType.BOOK_STATS:
-            return BookStats.decode(packet_payload, trace_id)
+            return BookStats.decode(packet_payload, client_id, packet_id)
         elif packet_type == PacketType.REVIEW_AND_AUTHOR:
-            return ReviewAndAuthor.decode(packet_payload, trace_id)
+            return ReviewAndAuthor.decode(packet_payload, client_id, packet_id)
         elif packet_type == PacketType.AUTHORS:
-            return Authors.decode(packet_payload, trace_id)
+            return Authors.decode(packet_payload, client_id, packet_id)
         else:
             logging.error(f"Tipo de paquete desconocido: {packet_type}")
             raise ValueError("Tipo de paquete desconocido")

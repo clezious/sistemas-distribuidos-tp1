@@ -268,6 +268,7 @@ class ConfigGenerator:
         )
 
     def _generate_client(self):
+        instances = self.config_params["client"]
         self._generate_service(
             "client",
             "client:latest",
@@ -279,7 +280,8 @@ class ConfigGenerator:
              "RESULT_BOUNDARY_IP=output_boundary"],
             ["test_net"],
             ["./datasets:/datasets"],
-            depends_on=["book_boundary", "review_boundary"])
+            depends_on=["book_boundary", "review_boundary"],
+            instances=instances)
 
     def _generate_input_boundary(self,
                                  boundary_type: str,

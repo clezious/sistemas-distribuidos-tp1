@@ -35,14 +35,12 @@ class Review(Packet):
         return Review(title, score, text, client_id, packet_id)
 
     @staticmethod
-    def decode(fields: list[str]) -> 'Review':
-        client_id = fields[0]
-        message_id = fields[1]
-        title = fields[1]
-        score = fields[2]
-        text = fields[3]
+    def decode(fields: list[str], client_id: int, packet_id: int) -> 'Review':
+        title = fields[0]
+        score = fields[1]
+        text = fields[2]
 
-        return Review(title, score, text, client_id, message_id)
+        return Review(title, score, text, client_id, packet_id)
 
     def __str__(self):
         return self.encode()

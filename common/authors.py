@@ -19,8 +19,6 @@ class Authors(Packet):
         return [self.authors]
 
     @staticmethod
-    def decode(fields: list[str]) -> 'Authors':
-        client_id = fields[0]
-        packet_id = fields[1]
-        authors = fields[2]
+    def decode(fields: list[str], client_id: int, packet_id: int) -> 'Authors':
+        authors = fields[0]
         return Authors(authors, client_id, packet_id)

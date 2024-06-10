@@ -13,7 +13,7 @@ class DecadeCounter:
                  output_queues: list,
                  instance_id: int,
                  cluster_size: int):
-        self.authors: dict[str, set] = {}
+        self.authors: dict[int, dict[str, set]] = {}
         self.instance_id = instance_id
         self.cluster_size = cluster_size
 
@@ -38,7 +38,10 @@ class DecadeCounter:
             self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self.middleware.send(EOFPacket().encode())
+            self.middleware.send(
+                EOFPacket(
+                    eof_packet.client_id,
+                    eof_packet.packet_id).encode())
             logging.debug(f" [x] Sent EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)
@@ -49,16 +52,21 @@ class DecadeCounter:
             return
 
         decade = (book.year // 10) * 10
-        if author not in self.authors:
-            self.authors[author] = set()
+        self.authors[book.client_id] = self.authors.get(book.client_id, {})
+        self.authors[book.client_id][author] = self.authors[book.client_id].get(
+            author, set())
 
-        if decade in self.authors[author]:
+        if decade in self.authors[book.client_id][author]:
             return
 
-        self.authors[author].add(decade)
+        self.authors[book.client_id][author].add(decade)
 
-        if len(self.authors[author]) == REQUIRED_DECADES:
-            authors_packet = Authors(author)
+        if len(self.authors[book.client_id][author]) == REQUIRED_DECADES:
+            authors_packet = Authors(
+                client_id=book.client_id,
+                packet_id=book.packet_id,
+                authors=author
+            )
             logging.info(
                 "Author %s has published books in %i different decades.",
                 author, REQUIRED_DECADES)

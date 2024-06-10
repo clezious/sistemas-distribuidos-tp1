@@ -70,7 +70,7 @@ class InputBoundary:
         self.processes = []
         self.socket = client_socket
         self.middleware_sender_process = None
-        message_id = 0
+        packet_id = 0
         while self.should_stop is False:
             try:
                 data = receive_line(client_socket,
@@ -78,15 +78,15 @@ class InputBoundary:
                 logging.debug("Received line: %s", data)
                 packet = None
                 if self.boundary_type == BoundaryType.BOOK:
-                    packet = Book.from_csv_row(data, client_id, message_id)
+                    packet = Book.from_csv_row(data, client_id, packet_id)
                 elif self.boundary_type == BoundaryType.REVIEW:
-                    packet = Review.from_csv_row(data, client_id, message_id)
+                    packet = Review.from_csv_row(data, client_id, packet_id)
                 if packet:
                     self.packet_queue.put(packet)
-                    message_id += 1
+                    packet_id += 1
             except EOFError:
                 logging.info("EOF reached %s", client_id)
-                eof_packet = EOFPacket(client_id, message_id)
+                eof_packet = EOFPacket(client_id, packet_id)
                 self.packet_queue.put(eof_packet)
                 break
             except ConnectionResetError:

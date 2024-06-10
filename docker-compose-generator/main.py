@@ -14,6 +14,7 @@ def initialize_config():
         raise ValueError("Config file not found")
 
     config_params = {}
+    config_params["client"] = int(config["CONTAINERS"]["CLIENT"])
     config_params["book_filter_by_category_computers"] = int(
         config["CONTAINERS"]["BOOK_FILTER_BY_CATEGORY_COMPUTERS"])
     config_params["book_filter_by_category_fiction"] = int(

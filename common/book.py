@@ -80,15 +80,13 @@ class Book(Packet):
             return []
 
     @staticmethod
-    def decode(fields: list[str]) -> 'Book':
-        client_id = fields[0]
-        message_id = fields[1]
-        title = fields[2]
-        description = fields[3]
-        authors = fields[4]
-        publisher = fields[5]
-        year = fields[6]
-        categories = fields[7]
+    def decode(fields: list[str], client_id: int, packet_id: int) -> 'Book':
+        title = fields[0]
+        description = fields[1]
+        authors = fields[2]
+        publisher = fields[3]
+        year = fields[4]
+        categories = fields[5]
         return Book(
             title,
             description,
@@ -97,7 +95,7 @@ class Book(Packet):
             year,
             categories,
             client_id,
-            message_id)
+            packet_id)
 
     def __str__(self):
         return self.encode()

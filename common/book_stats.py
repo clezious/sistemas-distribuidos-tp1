@@ -22,12 +22,12 @@ class BookStats(Packet):
                 self.score]
 
     @staticmethod
-    def decode(fields: list[str]) -> 'BookStats':
-        client_id = fields[0]
-        message_id = fields[1]
-        title = fields[2]
-        score = fields[3]
-        return BookStats(title, score, client_id, message_id)
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'BookStats':
+        title = fields[0]
+        score = fields[1]
+        return BookStats(title, score, client_id, packet_id)
 
     def __lt__(self, other: 'BookStats'):
         return self.score < other.score

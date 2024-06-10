@@ -25,12 +25,12 @@ class ReviewAndAuthor(Packet):
         return [self.book_title, self.score, self.text, self.authors]
 
     @staticmethod
-    def decode(fields: list[str]) -> 'ReviewAndAuthor':
-        client_id = fields[0]
-        packet_id = fields[1]
-        title = fields[2]
-        score = fields[3]
-        text = fields[4]
-        authors = fields[5]
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'ReviewAndAuthor':
+        title = fields[0]
+        score = fields[1]
+        text = fields[2]
+        authors = fields[3]
         return ReviewAndAuthor(
             title, score, text, authors, client_id, packet_id)
