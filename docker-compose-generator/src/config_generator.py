@@ -18,6 +18,9 @@ class ConfigGenerator:
                         ]
                     }
                 }
+            },
+            "volumes": {
+                "storage": {}
             }
         }
 
@@ -87,7 +90,7 @@ class ConfigGenerator:
             "1990_1999_review_stats_router_by_title",
             "book_title",
             self.config_params["1990_1999_reviews_stats_router_by_title"],
-            self.config_params["1990_1999_reviews_stats_router_by_title"],
+            self.config_params["review_stats_service"],
             {"1990_1999_reviews": ""},
             ["1990_1999_reviews_stats_router_by_title"]
         )
@@ -103,6 +106,7 @@ class ConfigGenerator:
                           output_queues: list[str] = None,
                           output_exchanges: list[str] = None,
                           instances: int = 1):
+        volumes.append("storage:/storage")
         for instance_id in range(instances):
             instance_suffix = "" if instances == 1 else f"_{instance_id}"
             service_name_instance = f"{service_name}{instance_suffix}"
@@ -279,9 +283,10 @@ class ConfigGenerator:
              "RESULT_BOUNDARY_PORT=12345",
              "RESULT_BOUNDARY_IP=output_boundary"],
             ["test_net"],
-            ["./datasets:/datasets"],
+            ["./datasets:/datasets:ro", "./output:/output"],
             depends_on=["book_boundary", "review_boundary"],
-            instances=instances)
+            instances=instances
+        )
 
     def _generate_input_boundary(self,
                                  boundary_type: str,

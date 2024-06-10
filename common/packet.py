@@ -34,6 +34,10 @@ class Packet(ABC):
     def decode(fields: list[str]) -> "Packet":
         pass
 
+    @property
+    def trace_id(self) -> str:
+        return f"{self.client_id}-{self.packet_id}"
+
     def __str__(self):
         return self.encode()
 

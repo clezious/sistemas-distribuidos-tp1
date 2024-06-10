@@ -5,9 +5,12 @@ from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.review import Review
 from common.review_and_author import ReviewAndAuthor
+from common.persistence_manager import PersistenceManager
+import json
 
 REQUIRED_TOTAL_REVIEWS = 500
 TOP_BOOKS = 10
+REVIEW_STATS_KEY_PREFIX = 'review_stats_'
 
 
 class ReviewStatsService:
@@ -17,14 +20,17 @@ class ReviewStatsService:
                  top_books_queue: str,
                  instance_id: int,
                  cluster_size: int):
+        self.persistence_manager = PersistenceManager(f'../storage/review_stats_service_{instance_id}')
+        self.book_reviews = {}
+        self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
             output_queues=[required_reviews_books_queue, top_books_queue],
             callback=self._save_review,
             eof_callback=self._handle_eof,
-            instance_id=instance_id
+            instance_id=instance_id,
+            persistence_manager=self.persistence_manager,
         )
-        self.book_reviews = {}
         self.required_reviews_books_queue = required_reviews_books_queue
         self.top_books_queue = top_books_queue
         self.instance_id = instance_id
@@ -94,6 +100,11 @@ class ReviewStatsService:
             }
 
         self._update_review_stats(review)
+        key = f'{REVIEW_STATS_KEY_PREFIX}{review.book_title}'
+        self.persistence_manager.put(
+            key,
+            json.dumps(self.book_reviews[review.book_title])
+        )
         logging.debug("Received and saved review for: %s", review.book_title)
 
         total_reviews = self.book_reviews[review.book_title]["total_reviews"]
@@ -103,3 +114,11 @@ class ReviewStatsService:
                 self.required_reviews_books_queue,
                 book.encode())
             logging.info("Sent book to required reviews queue: %s", book.title)
+
+    def _init_state(self):
+        self.book_reviews = {}
+        for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
+            book_title = key.strip(REVIEW_STATS_KEY_PREFIX)
+            stats = json.loads(self.persistence_manager.get(key))
+            self.book_reviews[book_title] = stats
+        logging.info(f"State initialized with {self.book_reviews}")
