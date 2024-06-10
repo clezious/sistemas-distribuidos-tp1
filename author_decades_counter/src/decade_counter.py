@@ -3,8 +3,11 @@ from common.authors import Authors
 from common.book import Book
 from common.middleware import Middleware
 from common.eof_packet import EOFPacket
+from common.persistence_manager import PersistenceManager
+import json
 
 REQUIRED_DECADES = 10
+AUTHOR_PREFIX = "author_"
 
 
 class DecadeCounter:
@@ -13,16 +16,18 @@ class DecadeCounter:
                  output_queues: list,
                  instance_id: int,
                  cluster_size: int):
-        self.authors: dict[str, set] = {}
+        self.authors: dict[str, list] = {}
         self.instance_id = instance_id
         self.cluster_size = cluster_size
-
+        self.persistence_manager = PersistenceManager(f'../storage/decade_counter_{instance_id}')
+        self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
             callback=self.add_decade,
             eof_callback=self.handle_eof,
             output_queues=output_queues,
-            instance_id=instance_id)
+            instance_id=instance_id,
+            persistence_manager=self.persistence_manager)
 
     def start(self):
         self.middleware.start()
@@ -50,16 +55,26 @@ class DecadeCounter:
 
         decade = (book.year // 10) * 10
         if author not in self.authors:
-            self.authors[author] = set()
+            self.authors[author] = []
 
         if decade in self.authors[author]:
             return
 
-        self.authors[author].add(decade)
-
+        self.authors[author].append(decade)
+        key = f'{AUTHOR_PREFIX}{author}'
+        self.persistence_manager.put(key, json.dumps(self.authors[author]))
         if len(self.authors[author]) == REQUIRED_DECADES:
-            authors_packet = Authors(author)
+            authors_packet = Authors(author, book.trace_id)
             logging.info(
                 "Author %s has published books in %i different decades.",
                 author, REQUIRED_DECADES)
             self.middleware.send(authors_packet.encode())
+
+    def _init_state(self):
+        self.authors = {}
+        keys = self.persistence_manager.get_keys('author_')
+        logging.info(f"Initializing state with keys: {keys}")
+        for key in keys:
+            author = key.strip('author_')
+            self.authors[author] = json.loads(self.persistence_manager.get(key))
+        logging.info(f"State initialized with {self.authors}")

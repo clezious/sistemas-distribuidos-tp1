@@ -4,6 +4,10 @@ from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.review import Review
 from common.review_and_author import ReviewAndAuthor
+from common.persistence_manager import PersistenceManager
+import json
+
+BOOKS_KEY = 'books'
 
 
 class ReviewFilter:
@@ -23,6 +27,8 @@ class ReviewFilter:
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
         self.books = {}
+        self.persistence_manager = PersistenceManager(f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
+        self._init_state()
         self._init_books_middleware()
         self._init_reviews_middleware()
 
@@ -42,7 +48,8 @@ class ReviewFilter:
             eof_callback=self.handle_books_eof,
             output_queues=self.output_queues,
             output_exchanges=self.output_exchanges,
-            instance_id=self.instance_id)
+            instance_id=self.instance_id,
+            persistence_manager=self.persistence_manager)
 
     def _init_reviews_middleware(self):
         logging.info("Initializing Reviews Middleware")
@@ -71,6 +78,7 @@ class ReviewFilter:
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
+        self.persistence_manager.append(BOOKS_KEY, json.dumps([book.title, book.authors]))
         logging.debug("Received and saved book: %s", book.title)
         if len(self.books) % 2000 == 0:
             logging.info("Stored books count: %d", len(self.books))
@@ -119,3 +127,10 @@ class ReviewFilter:
             review.trace_id)
         self.reviews_middleware.send(review_and_author.encode())
         logging.debug("Filter passed - review for: %s", review.book_title)
+
+    def _init_state(self):
+        books = self.persistence_manager.get(BOOKS_KEY).splitlines()
+        for book in books:
+            book = json.loads(book)
+            self.books[book[0]] = book[1]
+        logging.info(f"Initialized state with {self.books}")

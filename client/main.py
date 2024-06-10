@@ -4,6 +4,7 @@ import os
 from src.client_receiver import ClientReceiver
 from src.client_sender import ClientSender
 from common.logs import initialize_log
+import time
 
 
 def initialize_config():
@@ -45,6 +46,7 @@ def initialize_config():
 
 
 def main():
+    start = time.time()
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
     book_client = ClientSender(
@@ -53,20 +55,22 @@ def main():
         config_params["book_boundary_port"])
     book_client.run()
     logging.info("Sent all books")
-
+    logging.info(f"Time taken to send books: {time.time() - start}")
     review_client = ClientSender(
         "../datasets/Books_rating.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"])
     review_client.run()
     logging.info("Sent all reviews")
+    logging.info(f"Time taken to send reviews: {time.time() - start}")
 
     result_client = ClientReceiver(
         config_params["result_boundary_ip"],
         config_params["result_boundary_port"],
-        output_dir="../datasets")
+        output_dir="../output")
     result_client.run()
     logging.info("Received all results")
+    logging.info(f"Total time: {time.time() - start}")
 
 
 if __name__ == "__main__":

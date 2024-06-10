@@ -2,22 +2,28 @@ import logging
 from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
+from common.persistence_manager import PersistenceManager
+import json
 
 
 PERCENTILE = 90
+BOOK_STATS_PREFIX = 'book_stats_'
 
 
 class SentimentAggregator:
     def __init__(self,
                  input_queues: dict[str, str],
                  output_queues: list[str]):
+        self.persistence_manager = PersistenceManager('../storage/sentiment_aggregator')
+        self.books_stats: dict[str, dict[str, str]] = {}
+        self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
             output_queues=output_queues,
             callback=self._save_stats,
             eof_callback=self._calculate_percentile,
+            persistence_manager=self.persistence_manager
         )
-        self.books_stats: dict[str, dict[str, str]] = {}
 
     def start(self):
         self.middleware.start()
@@ -52,4 +58,14 @@ class SentimentAggregator:
             }
         self.books_stats[book_stats.title]["total_score"] += book_stats.score
         self.books_stats[book_stats.title]["total_reviews"] += 1
+
+        key = f'{BOOK_STATS_PREFIX}{book_stats.title}'
+        self.persistence_manager.put(key, json.dumps(self.books_stats[book_stats.title]))
         logging.debug("Received book stats: %s", book_stats)
+
+    def _init_state(self):
+        for key in self.persistence_manager.get_keys(BOOK_STATS_PREFIX):
+            book_stats = json.loads(self.persistence_manager.get(key))
+            title = key.strip(BOOK_STATS_PREFIX)
+            self.books_stats[title] = book_stats
+        logging.info(f"Initialized with state: {self.books_stats}")
