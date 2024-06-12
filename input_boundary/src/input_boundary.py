@@ -2,7 +2,7 @@ import logging
 import socket
 
 from .boundary_type import BoundaryType
-from common.receive_utils import receive_line
+from common.receive_utils import receive_exact, receive_line
 from common.eof_packet import EOFPacket
 from common.middleware import Middleware
 from common.book import Book
@@ -12,6 +12,7 @@ import multiprocessing
 MAX_READ_SIZE = 1024
 LENGTH_BYTES = 2
 QUEUE_SIZE = 10000
+CLIENT_ID_BYTES = 2
 
 
 class InputBoundary:
@@ -29,16 +30,18 @@ class InputBoundary:
         self.processes = []
         self.packet_queue = multiprocessing.Queue(maxsize=QUEUE_SIZE)
         self.middleware_sender_process = None
+        self.middleware = None
+        self.client_id = 0
         logging.info(
             "Listening for connections and redirecting to %s", output_exchange)
 
     def run(self):
-        client_id = 0
         self.middleware_sender_process = multiprocessing.Process(
             target=self.__middleware_sender)
         self.middleware_sender_process.start()
         while self.should_stop is False:
             try:
+                client_id = self.__next_client_id()
                 client_socket, address = self.socket.accept()
                 logging.info(
                     "Connection from %s - Assigning client id: %s", address,
@@ -49,10 +52,17 @@ class InputBoundary:
                 )
                 self.processes.append(process)
                 process.start()
-                client_id += 1
             except OSError:
                 logging.error("Server socket closed")
                 continue
+
+    def __next_client_id(self):
+        client_id = None
+        if self.boundary_type == BoundaryType.BOOK:
+            client_id = self.client_id
+            self.client_id += 1
+
+        return client_id
 
     def __middleware_sender(self):
         logging.info("Middleware sender started")
@@ -71,6 +81,14 @@ class InputBoundary:
         self.socket = client_socket
         self.middleware_sender_process = None
         packet_id = 0
+
+        if self.boundary_type == BoundaryType.BOOK:
+            client_socket.sendall(client_id.to_bytes(
+                CLIENT_ID_BYTES, byteorder='big'))
+        elif self.boundary_type == BoundaryType.REVIEW:
+            client_id_bytes = receive_exact(client_socket, CLIENT_ID_BYTES)
+            client_id = int.from_bytes(client_id_bytes, byteorder='big')
+
         while self.should_stop is False:
             try:
                 data = receive_line(client_socket,

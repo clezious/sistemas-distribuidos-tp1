@@ -21,7 +21,7 @@ class DecadeCounter:
         self.cluster_size = cluster_size
         self.persistence_manager = PersistenceManager(
             f'../storage/decade_counter_{instance_id}')
-        self._init_state()
+        # self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
             callback=self.add_decade,
