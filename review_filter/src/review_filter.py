@@ -1,7 +1,8 @@
 import logging
+import threading
 from common.book import Book
 from common.eof_packet import EOFPacket
-from common.middleware import Middleware
+from common.middleware import CallbackAction, Middleware
 from common.review import Review
 from common.review_and_author import ReviewAndAuthor
 from common.persistence_manager import PersistenceManager
@@ -20,27 +21,46 @@ class ReviewFilter:
                  cluster_size: int):
         self.book_input_queue = book_input_queue
         self.review_input_queue = review_input_queue
-        self.books_middleware = None
-        self.reviews_middleware = None
         self.instance_id = instance_id
         self.cluster_size = cluster_size
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
-        self.books = {}
-        self.persistence_manager = PersistenceManager(f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
+        self.books: dict[str, dict[str, str]] = {}
+        self.eofs: set[int] = set()
+        self.persistence_manager = PersistenceManager(
+            f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
         self._init_state()
-        self._init_books_middleware()
-        self._init_reviews_middleware()
+
+        self.reviews_middleware = None
+        self.books_middleware = None
+        self.books_receiver = threading.Thread(target=self._books_receiver)
+        self.reviews_receiver = threading.Thread(target=self._reviews_receiver)
 
     def start(self):
-        self.books_middleware.start()
+        self.books_receiver.start()
+        self.reviews_receiver.start()
 
     def shutdown(self):
-        logging.info("Graceful shutdown")
-        self.books_middleware.shutdown()
-        self.reviews_middleware.shutdown()
+        logging.info("Graceful shutdown: in progress")
+        if self.books_middleware:
+            self.books_middleware.shutdown()
+            self.books_middleware = None
 
-    def _init_books_middleware(self):
+        if self.reviews_middleware:
+            self.reviews_middleware.shutdown()
+            self.reviews_middleware = None
+
+        if self.books_receiver:
+            self.books_receiver.join()
+            self.books_receiver = None
+
+        if self.reviews_receiver:
+            self.reviews_receiver.join()
+            self.reviews_receiver = None
+
+        logging.info("Graceful shutdown: done")
+
+    def _books_receiver(self):
         logging.info("Initializing Books Middleware")
         self.books_middleware = Middleware(
             input_queues={self.book_input_queue[0]: self.book_input_queue[1]},
@@ -50,38 +70,34 @@ class ReviewFilter:
             output_exchanges=self.output_exchanges,
             instance_id=self.instance_id,
             persistence_manager=self.persistence_manager)
-
-    def _init_reviews_middleware(self):
-        logging.info("Initializing Reviews Middleware")
-        self.reviews_middleware = Middleware(
-            input_queues={
-                self.review_input_queue[0]: self.review_input_queue[1]},
-            callback=self._filter_review,
-            eof_callback=self.handle_reviews_eof,
-            output_queues=self.output_queues,
-            output_exchanges=self.output_exchanges,
-            instance_id=self.instance_id)
-
-    def _start_reviews_middleware(self):
-        if self.books_middleware:
-            self.books_middleware.shutdown()
-        self.books_middleware = None
-        self._init_books_middleware()
-        self.reviews_middleware.start()
-
-    def _start_books_middleware(self):
-        if self.reviews_middleware:
-            self.reviews_middleware.shutdown()
-        self.reviews_middleware = None
-        self._init_reviews_middleware()
         self.books_middleware.start()
 
+    def _reviews_receiver(self):
+        logging.info("Initializing Reviews Middleware")
+        self.reviews_middleware = Middleware(
+            output_queues=self.output_queues,
+            output_exchanges=self.output_exchanges,
+            instance_id=self.instance_id,
+        )
+        self.reviews_middleware.add_input_queue(
+            self.review_input_queue[0],
+            exchange=self.review_input_queue[1],
+            callback=self._filter_review,
+            eof_callback=self.handle_reviews_eof,
+            auto_ack=False
+        )
+        self.reviews_middleware.start()
+
     def _add_book(self, book: Book):
-        self.books[book.title] = book.authors
-        self.persistence_manager.append(BOOKS_KEY, json.dumps([book.title, book.authors]))
+        if book.client_id not in self.books:
+            self.books[book.client_id] = {}
+        self.books[book.client_id][book.title] = book.authors
+        self.persistence_manager.append(
+            BOOKS_KEY, json.dumps([book.title, book.authors]))
         logging.debug("Received and saved book: %s", book.title)
-        if len(self.books) % 2000 == 0:
-            logging.info("Stored books count: %d", len(self.books))
+        if len(self.books[book.client_id]) % 2000 == 0:
+            logging.info("[Client %s] Stored books count: %d",
+                         book.client_id,  len(self.books))
 
     def _reset_filter(self):
         self.books = {}
@@ -92,43 +108,54 @@ class ReviewFilter:
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
+        self.eofs.add(eof_packet.client_id)
+
         if len(eof_packet.ack_instances) == self.cluster_size:
             logging.debug(f" [x] Finished propagating Books EOF: {eof_packet}")
         else:
             self.books_middleware.return_eof(eof_packet)
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
-        self._start_reviews_middleware()
-
     def handle_reviews_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received Reviews EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self._reset_filter()
 
+        self.eofs.remove(eof_packet.client_id)
+
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self.reviews_middleware.send(EOFPacket().encode())
+            self.reviews_middleware.send(EOFPacket(
+                eof_packet.client_id,
+                eof_packet.packet_id,
+            ).encode())
             logging.debug(" [x] Forwarded EOF")
         else:
             self.reviews_middleware.return_eof(eof_packet)
 
-        self._start_books_middleware()
-
     def _filter_review(self, review: Review):
-        if review.book_title not in self.books:
-            return
+        if review.client_id not in self.eofs:
+            logging.warning("Received review before books EOF - requeuing")
+            # TODO: What happens if the review is requeued AFTER the EOF?
+            return CallbackAction.REQUEUE
 
-        author = self.books[review.book_title]
+        if review.book_title not in self.books[review.client_id]:
+            return CallbackAction.ACK
+
+        author = self.books[review.client_id][review.book_title]
         review_and_author = ReviewAndAuthor(
             review.book_title,
             review.score,
             review.text,
             author,
-            review.trace_id)
+            review.client_id,
+            review.packet_id
+        )
         self.reviews_middleware.send(review_and_author.encode())
         logging.debug("Filter passed - review for: %s", review.book_title)
+        return CallbackAction.ACK
 
     def _init_state(self):
+        # TODO: Recover state from persistence manager
         books = self.persistence_manager.get(BOOKS_KEY).splitlines()
         for book in books:
             book = json.loads(book)

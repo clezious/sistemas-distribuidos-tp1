@@ -16,6 +16,12 @@ RABBITMQ_HEARTBEAT = int(os.getenv('RABBITMQ_HEARTBEAT', '1200'))
 PROCESSED_KEY = 'processed'
 
 
+class CallbackAction:
+    ACK = "ack"
+    NACK = "nack"
+    REQUEUE = "requeue"
+
+
 class Middleware:
     def __init__(self,
                  input_queues: dict[str, str] = {},
@@ -122,29 +128,33 @@ class Middleware:
             self.input_queues[input_queue] = exchange
 
     def _callback_wrapper(self,
-                          callback: Callable[[Packet], any],
+                          callback: Callable[[Packet], CallbackAction],
                           eof_callback: Callable[[EOFPacket], any],
                           auto_ack: bool
                           ):
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
-            should_ack = True
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")
                 if eof_callback:
                     eof_callback(packet)
             else:
                 if not self.is_duplicate(packet.trace_id):
-                    should_ack = callback(packet)
+                    action = callback(packet)
                     # WARNING: A failure in this line could lead to a packet being processed twice!
                     self.mark_as_processed(packet.trace_id)
 
             if not auto_ack:
-                if should_ack:
+                if action == CallbackAction.ACK:
                     self.ack(method.delivery_tag)
-                else:
+                elif action == CallbackAction.NACK:
                     self.nack(method.delivery_tag)
+                elif action == CallbackAction.REQUEUE:
+                    self.ack(method.delivery_tag)
+                    logging.debug("Requeued packet to %s", method.routing_key)
+                    self.send_to_queue(method.routing_key, body)
+
         return wrapper
 
     def ack(self, delivery_tag):
@@ -182,7 +192,9 @@ class Middleware:
 
     def init_state(self):
         if self.persistence_manager:
-            self.state[PROCESSED_KEY] = self.persistence_manager.get(PROCESSED_KEY).splitlines()
+            self.state[PROCESSED_KEY] = self.persistence_manager.get(
+                PROCESSED_KEY).splitlines()
             logging.debug(f"Initialized state with {self.state[PROCESSED_KEY]}")
         else:
-            logging.debug("No persistence manager, skipping state initialization")
+            logging.debug(
+                "No persistence manager, skipping state initialization")
