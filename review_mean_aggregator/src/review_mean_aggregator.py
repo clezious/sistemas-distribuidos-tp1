@@ -16,7 +16,8 @@ class ReviewMeanAggregator:
     def __init__(self,
                  input_queues: dict[str, str],
                  output_queues: list[str]):
-        self.persistence_manager = PersistenceManager('../storage/review_mean_aggregator')
+        self.persistence_manager = PersistenceManager(
+            '../storage/review_mean_aggregator')
         self.middleware = Middleware(
             input_queues=input_queues,
             output_queues=output_queues,
@@ -24,7 +25,7 @@ class ReviewMeanAggregator:
             eof_callback=self._handle_eof,
             persistence_manager=self.persistence_manager,
         )
-        self.books_stats: list[BookStats] = []
+        self.books_stats: dict[int, list[BookStats]] = {}
         self._init_state()
 
     def start(self):
@@ -35,22 +36,32 @@ class ReviewMeanAggregator:
         self.middleware.shutdown()
 
     def _handle_eof(self, eof_packet: EOFPacket):
-        result = [heapq.heappop(self.books_stats)
-                  for _ in range(len(self.books_stats))]
+        result = [heapq.heappop(self.books_stats[eof_packet.client_id])
+                  for _ in range(len(self.books_stats[eof_packet.client_id]))]
         result.reverse()
         for book_stats in result:
             self.middleware.send(book_stats.encode())
-        self.middleware.send(EOFPacket().encode())
-        self.books_stats = []
+        self.middleware.send(EOFPacket(
+            eof_packet.client_id,
+            eof_packet.packet_id
+        ).encode())
+        self.books_stats.pop(eof_packet.client_id)
 
     def _save_stats(self, book_stats: BookStats):
-        heapq.heappush(self.books_stats, book_stats)
-        if len(self.books_stats) > MAX_BOOKS:
-            heapq.heappop(self.books_stats)
-        self.persistence_manager.put(BOOK_STATS_KEY,
-                                     json.dumps([book_stats.encode() for book_stats in self.books_stats]))
+        if book_stats.client_id not in self.books_stats:
+            self.books_stats[book_stats.client_id] = []
+
+        heapq.heappush(self.books_stats[book_stats.client_id], book_stats)
+        if len(self.books_stats[book_stats.client_id]) > MAX_BOOKS:
+            heapq.heappop(self.books_stats[book_stats.client_id])
+
+        self.persistence_manager.put(BOOK_STATS_KEY, json.dumps(
+            [book_stats.encode()
+             for book_stats in self.books_stats[book_stats.client_id]]))
 
     def _init_state(self):
         state = json.loads(self.persistence_manager.get(BOOK_STATS_KEY) or '[]')
-        self.books_stats = [PacketDecoder.decode(book_stats) for book_stats in state]
-        logging.info(f"State initialized with {[book_stats.encode() for book_stats in self.books_stats]}")
+        # TODO: Add support for multiple clients
+        # self.books_stats = [PacketDecoder.decode(book_stats) for book_stats in state]
+        # logging.info(
+        #     f"State initialized with {[book_stats.encode() for book_stats in self.books_stats]}")
