@@ -14,8 +14,9 @@ class SentimentAggregator:
     def __init__(self,
                  input_queues: dict[str, str],
                  output_queues: list[str]):
-        self.persistence_manager = PersistenceManager('../storage/sentiment_aggregator')
-        self.books_stats: dict[str, dict[str, str]] = {}
+        self.persistence_manager = PersistenceManager(
+            '../storage/sentiment_aggregator')
+        self.books_stats: dict[int, dict[str, dict[str, str]]] = {}
         self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
@@ -34,33 +35,47 @@ class SentimentAggregator:
 
     def _calculate_percentile(self, eof_packet: EOFPacket):
         stats: list[BookStats] = []
-        for title, book_stats in self.books_stats.items():
+        for title, book_stats in self.books_stats[eof_packet.client_id].items():
             average_score = book_stats["total_score"] / book_stats["total_reviews"]
-            stats.append(BookStats(title, average_score, book_stats["trace_id"]))
+            stats.append(
+                BookStats(
+                    title, average_score, eof_packet.client_id,
+                    book_stats["packet_id"]))
         stats.sort(key=lambda x: x.score)
         percentile_90_score = stats[int(len(stats) * (PERCENTILE / 100))].score
         logging.info("90th percentile score: %f", percentile_90_score)
-        percentile = [book_stats for book_stats in stats if book_stats.score >= percentile_90_score]
+        percentile = [book_stats for book_stats in stats
+                      if book_stats.score >= percentile_90_score]
 
         for book_stats in percentile:
             self.middleware.send(book_stats.encode())
             logging.info("Sent book stats: %s", book_stats)
 
-        self.middleware.send(EOFPacket().encode())
-        self.books_stats = {}
+        self.middleware.send(EOFPacket(
+            eof_packet.client_id,
+            eof_packet.packet_id
+        ).encode())
+        self.books_stats.pop(eof_packet.client_id)
 
     def _save_stats(self, book_stats: BookStats):
-        if book_stats.title not in self.books_stats:
-            self.books_stats[book_stats.title] = {
+        if book_stats.client_id not in self.books_stats:
+            self.books_stats[book_stats.client_id] = {}
+
+        if book_stats.title not in self.books_stats[book_stats.client_id]:
+            self.books_stats[book_stats.client_id][book_stats.title] = {
                 "total_score": 0,
                 "total_reviews": 0,
-                "trace_id": book_stats.trace_id
+                "packet_id": book_stats.packet_id
             }
-        self.books_stats[book_stats.title]["total_score"] += book_stats.score
-        self.books_stats[book_stats.title]["total_reviews"] += 1
+
+        self.books_stats[book_stats.client_id][book_stats.title][
+            "total_score"] += book_stats.score
+        self.books_stats[book_stats.client_id][book_stats.title][
+            "total_reviews"] += 1
 
         key = f'{BOOK_STATS_PREFIX}{book_stats.title}'
-        self.persistence_manager.put(key, json.dumps(self.books_stats[book_stats.title]))
+        self.persistence_manager.put(key, json.dumps(
+            self.books_stats[book_stats.client_id][book_stats.title]))
         logging.debug("Received book stats: %s", book_stats)
 
     def _init_state(self):
