@@ -25,7 +25,7 @@ class ReviewFilter:
         self.cluster_size = cluster_size
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
-        self.books: dict[str, dict[str, str]] = {}
+        self.books: dict[int, dict[str, str]] = {}
         self.eofs: set[int] = set()
         self.persistence_manager = PersistenceManager(
             f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
@@ -80,7 +80,7 @@ class ReviewFilter:
             instance_id=self.instance_id,
         )
         self.reviews_middleware.add_input_queue(
-            self.review_input_queue[0],
+            f"{self.review_input_queue[0]}_{self.instance_id}",
             exchange=self.review_input_queue[1],
             callback=self._filter_review,
             eof_callback=self.handle_reviews_eof,
@@ -99,9 +99,9 @@ class ReviewFilter:
             logging.info("[Client %s] Stored books count: %d",
                          book.client_id,  len(self.books))
 
-    def _reset_filter(self):
-        self.books = {}
-        logging.info("Filter reset")
+    def _reset_filter(self, client_id: int):
+        self.books.pop(client_id)
+        logging.info("Filter reset for client id %s", client_id)
 
     def handle_books_eof(self, eof_packet: EOFPacket):
         logging.debug(f" [x] Received Books EOF: {eof_packet}")
@@ -119,7 +119,7 @@ class ReviewFilter:
     def handle_reviews_eof(self, eof_packet: EOFPacket):
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
-            self._reset_filter()
+            self._reset_filter(eof_packet.client_id)
 
         self.eofs.remove(eof_packet.client_id)
 

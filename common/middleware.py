@@ -135,6 +135,7 @@ class Middleware:
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
+            action = CallbackAction.ACK
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")
                 if eof_callback:
