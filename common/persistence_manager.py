@@ -44,6 +44,13 @@ class PersistenceManager:
                 return ''
             logging.error(f"Error reading from {path}: {e}")
 
+    def _delete(self, path):
+        try:
+            logging.debug(f"Deleting {path}")
+            os.remove(path)
+        except Exception as e:
+            logging.error(f"Error deleting {path}: {e}")
+
     def put(self, key: str, value: str):
         try:
             path = f'{self.storage_path}/{self._get_internal_key(key)}'
@@ -73,6 +80,20 @@ class PersistenceManager:
         except Exception as e:
             logging.error(f"Error getting keys with prefix: {prefix}: {e}")
             return []
+
+    def delete_keys(self, prefix: str = ''):
+        logging.debug(f"Deleting keys by prefix: {prefix}")
+        try:
+            keys_to_delete = self.get_keys(prefix)
+            for key in keys_to_delete:
+                path = f'{self.storage_path}/{self._keys_index[key]}'
+                self._delete(path)
+                self._keys_index.pop(key)
+                logging.debug(f"Deleted key: {key}")
+            new_keys = '\n'.join([json.dumps([key, value]) for key, value in self._keys_index.items()])
+            self._write(f'{self.storage_path}/{KEYS_INDEX_KEY}', new_keys)
+        except Exception as e:
+            logging.error(f"Error deleting keys by prefix: {prefix}: {e}")
 
     def _get_internal_key(self, key: str) -> str:
         internal_key = self._keys_index.get(key)

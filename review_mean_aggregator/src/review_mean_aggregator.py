@@ -41,6 +41,7 @@ class ReviewMeanAggregator:
         for book_stats in result:
             self.middleware.send(book_stats.encode())
         self.middleware.send(EOFPacket().encode())
+        self.persistence_manager.delete_keys(BOOK_STATS_KEY)
         self.books_stats = []
 
     def _save_stats(self, book_stats: BookStats):

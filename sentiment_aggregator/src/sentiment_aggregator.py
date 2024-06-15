@@ -47,6 +47,7 @@ class SentimentAggregator:
             logging.info("Sent book stats: %s", book_stats)
 
         self.middleware.send(EOFPacket().encode())
+        self.persistence_manager.delete_keys(BOOK_STATS_PREFIX)
         self.books_stats = {}
 
     def _save_stats(self, book_stats: BookStats):

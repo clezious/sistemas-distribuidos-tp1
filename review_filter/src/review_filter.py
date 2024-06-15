@@ -84,6 +84,7 @@ class ReviewFilter:
             logging.info("Stored books count: %d", len(self.books))
 
     def _reset_filter(self):
+        self.persistence_manager.delete_keys(prefix=BOOKS_KEY)
         self.books = {}
         logging.info("Filter reset")
 

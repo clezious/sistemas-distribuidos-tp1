@@ -71,6 +71,7 @@ class ReviewStatsService:
             self._send_book_stats(book_title, stats)
             logging.info("Sent top book to queue: %s", book_title)
 
+        self.persistence_manager.delete_keys(REVIEW_STATS_KEY_PREFIX)
         self.book_reviews = {}
         logging.info("Service reset")
 
