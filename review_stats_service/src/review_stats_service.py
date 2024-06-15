@@ -119,7 +119,7 @@ class ReviewStatsService:
     def _init_state(self):
         self.book_reviews = {}
         for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
-            book_title = key.strip(REVIEW_STATS_KEY_PREFIX)
+            book_title = key.removeprefix(REVIEW_STATS_KEY_PREFIX)
             stats = json.loads(self.persistence_manager.get(key))
             self.book_reviews[book_title] = stats
         logging.info(f"State initialized with {self.book_reviews}")

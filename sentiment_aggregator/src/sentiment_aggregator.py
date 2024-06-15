@@ -67,6 +67,6 @@ class SentimentAggregator:
     def _init_state(self):
         for key in self.persistence_manager.get_keys(BOOK_STATS_PREFIX):
             book_stats = json.loads(self.persistence_manager.get(key))
-            title = key.strip(BOOK_STATS_PREFIX)
+            title = key.removeprefix(BOOK_STATS_PREFIX)
             self.books_stats[title] = book_stats
         logging.info(f"Initialized with state: {self.books_stats}")
