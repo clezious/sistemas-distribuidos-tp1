@@ -1,4 +1,3 @@
-import heapq
 import logging
 from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
@@ -35,21 +34,30 @@ class ReviewMeanAggregator:
         self.middleware.shutdown()
 
     def _handle_eof(self, eof_packet: EOFPacket):
-        result = [heapq.heappop(self.books_stats)
-                  for _ in range(len(self.books_stats))]
-        result.reverse()
-        for book_stats in result:
+        for book_stats in self.books_stats:
             self.middleware.send(book_stats.encode())
         self.middleware.send(EOFPacket().encode())
         self.persistence_manager.delete_keys(BOOK_STATS_KEY)
         self.books_stats = []
 
     def _save_stats(self, book_stats: BookStats):
-        heapq.heappush(self.books_stats, book_stats)
-        if len(self.books_stats) > MAX_BOOKS:
-            heapq.heappop(self.books_stats)
-        self.persistence_manager.put(BOOK_STATS_KEY,
-                                     json.dumps([book_stats.encode() for book_stats in self.books_stats]))
+        # Only save the new packet if it is not already in the list.
+        # If it is, it means that the packet was already processed but not acknowledged.
+        if book_stats.trace_id not in [stats.trace_id for stats in self.books_stats]:
+            # If the list is not full, add the new packet
+            if len(self.books_stats) < MAX_BOOKS:
+                self.books_stats.append(book_stats)
+            # If the list is full, replace the smallest packet with the new one (if the new one is bigger)
+            elif self.books_stats[-1] < book_stats:
+                self.books_stats[-1] = book_stats
+            # If the new packet is smaller than the smallest packet, we dont have to change anything
+            else:
+                return
+
+            # Sort the list after adding the new packet, then persist the state
+            self.books_stats.sort(reverse=True)
+            self.persistence_manager.put(BOOK_STATS_KEY,
+                                         json.dumps([book_stats.encode() for book_stats in self.books_stats]))
 
     def _init_state(self):
         state = json.loads(self.persistence_manager.get(BOOK_STATS_KEY) or '[]')
