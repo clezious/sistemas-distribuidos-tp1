@@ -90,17 +90,22 @@ class ReviewStatsService:
     def _update_review_stats(self, review: Review):
         self.book_reviews[review.book_title]["total_reviews"] += 1
         self.book_reviews[review.book_title]["total_rating"] += review.score
+        self.book_reviews[review.book_title]["trace_id"] = review.trace_id
 
     def _save_review(self, review: ReviewAndAuthor):
         if review.book_title not in self.book_reviews:
             self.book_reviews[review.book_title] = {
-                "total_reviews": 0,
-                "total_rating": 0,
+                "total_reviews": 1,
+                "total_rating": review.score,
                 "authors": review.authors,
                 "trace_id": review.trace_id,
             }
+        else:
+            # Only update state if it is not a duplicate
+            # (received and saved but then shutdown and restarted before acking the message)
+            if self.book_reviews[review.book_title]["trace_id"] != review.trace_id:
+                self._update_review_stats(review)
 
-        self._update_review_stats(review)
         key = f'{REVIEW_STATS_KEY_PREFIX}{review.book_title}'
         self.persistence_manager.put(
             key,
@@ -119,7 +124,7 @@ class ReviewStatsService:
     def _init_state(self):
         self.book_reviews = {}
         for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
-            book_title = key.strip(REVIEW_STATS_KEY_PREFIX)
+            book_title = key.removeprefix(REVIEW_STATS_KEY_PREFIX)
             stats = json.loads(self.persistence_manager.get(key))
             self.book_reviews[book_title] = stats
         logging.info(f"State initialized with {self.book_reviews}")
