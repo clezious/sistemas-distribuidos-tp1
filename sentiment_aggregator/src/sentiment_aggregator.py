@@ -47,17 +47,23 @@ class SentimentAggregator:
             logging.info("Sent book stats: %s", book_stats)
 
         self.middleware.send(EOFPacket().encode())
+        self.persistence_manager.delete_keys(BOOK_STATS_PREFIX)
         self.books_stats = {}
 
     def _save_stats(self, book_stats: BookStats):
         if book_stats.title not in self.books_stats:
             self.books_stats[book_stats.title] = {
-                "total_score": 0,
-                "total_reviews": 0,
+                "total_score": book_stats.score,
+                "total_reviews": 1,
                 "trace_id": book_stats.trace_id
             }
-        self.books_stats[book_stats.title]["total_score"] += book_stats.score
-        self.books_stats[book_stats.title]["total_reviews"] += 1
+        else:
+            # Only update state if it is not a duplicate
+            # (received and saved but then shutdown and restarted before acking the message)
+            if self.books_stats[book_stats.title]["trace_id"] != book_stats.trace_id:
+                self.books_stats[book_stats.title]["total_score"] += book_stats.score
+                self.books_stats[book_stats.title]["total_reviews"] += 1
+                self.books_stats[book_stats.title]["trace_id"] = book_stats.trace_id
 
         key = f'{BOOK_STATS_PREFIX}{book_stats.title}'
         self.persistence_manager.put(key, json.dumps(self.books_stats[book_stats.title]))
@@ -66,6 +72,6 @@ class SentimentAggregator:
     def _init_state(self):
         for key in self.persistence_manager.get_keys(BOOK_STATS_PREFIX):
             book_stats = json.loads(self.persistence_manager.get(key))
-            title = key.strip(BOOK_STATS_PREFIX)
+            title = key.removeprefix(BOOK_STATS_PREFIX)
             self.books_stats[title] = book_stats
         logging.info(f"Initialized with state: {self.books_stats}")

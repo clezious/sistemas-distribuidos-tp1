@@ -40,6 +40,7 @@ class DecadeCounter:
         logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            self.persistence_manager.delete_keys(AUTHOR_PREFIX)
             self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
@@ -72,9 +73,9 @@ class DecadeCounter:
 
     def _init_state(self):
         self.authors = {}
-        keys = self.persistence_manager.get_keys('author_')
+        keys = self.persistence_manager.get_keys(AUTHOR_PREFIX)
         logging.info(f"Initializing state with keys: {keys}")
         for key in keys:
-            author = key.strip('author_')
+            author = key.removeprefix(AUTHOR_PREFIX)
             self.authors[author] = json.loads(self.persistence_manager.get(key))
         logging.info(f"State initialized with {self.authors}")

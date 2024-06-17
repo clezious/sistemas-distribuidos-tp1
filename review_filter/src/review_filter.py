@@ -6,8 +6,10 @@ from common.review import Review
 from common.review_and_author import ReviewAndAuthor
 from common.persistence_manager import PersistenceManager
 import json
+import threading
 
 BOOKS_KEY = 'books'
+READY_TO_PROCESS_REVIEWS_KEY = 'ready_to_process_reviews'
 
 
 class ReviewFilter:
@@ -28,12 +30,18 @@ class ReviewFilter:
         self.output_exchanges = output_exchanges
         self.books = {}
         self.persistence_manager = PersistenceManager(f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
+        self.ready_to_process_reviews = False
         self._init_state()
         self._init_books_middleware()
         self._init_reviews_middleware()
+        self.books_thread = None
+        self.reviews_thread = None
 
     def start(self):
-        self.books_middleware.start()
+        self.books_thread = threading.Thread(target=self.books_middleware.start)
+        self.reviews_thread = threading.Thread(target=self.reviews_middleware.start)
+        self.books_thread.start()
+        self.reviews_thread.start()
 
     def shutdown(self):
         logging.info("Graceful shutdown")
@@ -63,18 +71,8 @@ class ReviewFilter:
             instance_id=self.instance_id)
 
     def _start_reviews_middleware(self):
-        if self.books_middleware:
-            self.books_middleware.shutdown()
-        self.books_middleware = None
-        self._init_books_middleware()
-        self.reviews_middleware.start()
-
-    def _start_books_middleware(self):
-        if self.reviews_middleware:
-            self.reviews_middleware.shutdown()
-        self.reviews_middleware = None
-        self._init_reviews_middleware()
-        self.books_middleware.start()
+        self.persistence_manager.put(READY_TO_PROCESS_REVIEWS_KEY, 'True')
+        self.ready_to_process_reviews = True
 
     def _add_book(self, book: Book):
         self.books[book.title] = book.authors
@@ -84,6 +82,9 @@ class ReviewFilter:
             logging.info("Stored books count: %d", len(self.books))
 
     def _reset_filter(self):
+        self.persistence_manager.delete_keys(prefix=BOOKS_KEY)
+        self.persistence_manager.put(READY_TO_PROCESS_REVIEWS_KEY, 'False')
+        self.ready_to_process_reviews = False
         self.books = {}
         logging.info("Filter reset")
 
@@ -101,6 +102,8 @@ class ReviewFilter:
         self._start_reviews_middleware()
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
+        if not self.ready_to_process_reviews:
+            return False
         logging.debug(f" [x] Received Reviews EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
@@ -112,9 +115,9 @@ class ReviewFilter:
         else:
             self.reviews_middleware.return_eof(eof_packet)
 
-        self._start_books_middleware()
-
     def _filter_review(self, review: Review):
+        if not self.ready_to_process_reviews:
+            return False
         if review.book_title not in self.books:
             return
 
@@ -133,4 +136,5 @@ class ReviewFilter:
         for book in books:
             book = json.loads(book)
             self.books[book[0]] = book[1]
-        logging.info(f"Initialized state with {self.books}")
+        self.ready_to_process_reviews = self.persistence_manager.get(READY_TO_PROCESS_REVIEWS_KEY) == 'True'
+        logging.info(f"Initialized state with {self.books}, ready_to_process_reviews: {self.ready_to_process_reviews}")

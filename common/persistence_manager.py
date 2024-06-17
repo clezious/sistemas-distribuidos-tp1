@@ -4,6 +4,8 @@ import uuid
 import json
 
 KEYS_INDEX_KEY = 'keys_index'
+LENGTH_BYTES = 6
+TEMP_FILE = '_temp'
 
 
 class PersistenceManager:
@@ -15,34 +17,58 @@ class PersistenceManager:
         self._keys_index: dict[str, str] = {}
         self._init_state()
 
-    def _append(self, path, data):
+    def _append(self, path, data: str):
         try:
             logging.debug(f"Appending to {path}")
-            with open(path, 'a') as f:
-                f.write(data)
-                f.write('\n')
+            data = data.encode('unicode_escape')
+            data += b'\n'
+            length_bytes = len(data).to_bytes(
+                LENGTH_BYTES, byteorder='big')
+            with open(path, 'ab') as f:
+                f.write(length_bytes + data)
                 f.flush()
         except Exception as e:
             logging.error(f"Error appending to {path}: {e}")
 
-    def _write(self, path, data):
+    def _write(self, path, data: str):
         try:
             logging.debug(f"Writing to {path}")
-            with open(path, 'w') as f:
-                f.write(data)
+            data = data.encode('unicode_escape')
+            length_bytes = len(data).to_bytes(
+                LENGTH_BYTES, byteorder='big')
+            temp_path = f'{self.storage_path}/{TEMP_FILE}'
+            with open(temp_path, 'wb') as f:
+                f.write(length_bytes + data)
                 f.flush()
+            os.replace(temp_path, path)
         except Exception as e:
             logging.error(f"Error writing to {path}: {e}")
 
     def _read(self, path):
         try:
             logging.debug(f"Reading from {path}")
-            with open(path, 'r') as f:
-                return f.read()
+            with open(path, 'rb') as f:
+                data = ''
+                while (length := f.read(LENGTH_BYTES)):
+                    length = int.from_bytes(length, byteorder='big')
+                    content = f.readline()
+                    if len(content) == length:
+                        data += content.decode('unicode_escape')
+                    else:
+                        logging.error(f"Corrupted data in {path} expected {length} bytes, got {len(content)} bytes")
+                        logging.error(f"Content: {content}")
+                return data
         except OSError as e:
             if e.errno == 2:  # File not found
                 return ''
             logging.error(f"Error reading from {path}: {e}")
+
+    def _delete(self, path):
+        try:
+            logging.debug(f"Deleting {path}")
+            os.remove(path)
+        except Exception as e:
+            logging.error(f"Error deleting {path}: {e}")
 
     def put(self, key: str, value: str):
         try:
@@ -73,6 +99,20 @@ class PersistenceManager:
         except Exception as e:
             logging.error(f"Error getting keys with prefix: {prefix}: {e}")
             return []
+
+    def delete_keys(self, prefix: str = ''):
+        logging.debug(f"Deleting keys by prefix: {prefix}")
+        try:
+            keys_to_delete = self.get_keys(prefix)
+            for key in keys_to_delete:
+                path = f'{self.storage_path}/{self._keys_index[key]}'
+                self._delete(path)
+                self._keys_index.pop(key)
+                logging.debug(f"Deleted key: {key}")
+            new_keys = '\n'.join([json.dumps([key, value]) for key, value in self._keys_index.items()])
+            self._write(f'{self.storage_path}/{KEYS_INDEX_KEY}', new_keys)
+        except Exception as e:
+            logging.error(f"Error deleting keys by prefix: {prefix}: {e}")
 
     def _get_internal_key(self, key: str) -> str:
         internal_key = self._keys_index.get(key)
