@@ -30,7 +30,7 @@ class Middleware:
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
         self.channel = self.connection.channel()
-        self.channel.basic_qos(prefetch_count=1)
+        self.channel.basic_qos(prefetch_count=100)
         self.input_queues: dict[str, str] = {}
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
@@ -102,7 +102,7 @@ class Middleware:
                         eof_callback: Callable = None,
                         exchange: str = "",
                         exchange_type: str = "fanout",
-                        auto_ack=True):
+                        auto_ack=False):
         self.channel.queue_declare(queue=input_queue)
         if exchange:
             self.channel.exchange_declare(
@@ -136,8 +136,9 @@ class Middleware:
             else:
                 if not self.is_duplicate(packet.trace_id):
                     should_ack = callback(packet)
-                    # WARNING: A failure in this line could lead to a packet being processed twice!
-                    self.mark_as_processed(packet.trace_id)
+                    should_ack = True if should_ack is None else should_ack
+                    if should_ack:
+                        self.mark_as_processed(packet.trace_id)
 
             if not auto_ack:
                 if should_ack:
