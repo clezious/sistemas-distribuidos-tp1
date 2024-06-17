@@ -1,9 +1,11 @@
 import json
 import os
 import signal
+import threading
 
 from src.book_filter import BookFilter
 from common.logs import initialize_log
+from common.health_check import HealthCheck
 
 
 def main():
@@ -15,9 +17,14 @@ def main():
     instance_id = json.loads(os.getenv("INSTANCE_ID") or '0')
     cluster_size = json.loads(os.getenv("CLUSTER_SIZE") or '0')
 
-    book_filter = BookFilter(input_queues, output_queues, output_exchanges, instance_id, cluster_size)
+    healthcheck_port = json.loads(os.getenv("HEALTHCHECK_PORT") or '8888')
 
-    signal.signal(signal.SIGTERM, lambda signum, frame: book_filter.shutdown())
+    book_filter = BookFilter(input_queues, output_queues, output_exchanges, instance_id, cluster_size)
+    healthcheck = HealthCheck(port=healthcheck_port)
+    healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread.start()
+    signal.signal(signal.SIGTERM, lambda signum, frame: [method()
+                  for method in [book_filter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     book_filter.start()
 
 
