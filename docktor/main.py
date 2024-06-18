@@ -20,6 +20,7 @@ def main():
 
     healthcheck = HealthCheck(port=healthcheck_port)
     healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread.start()
 
     docktor = Docktor(instance_id=instance_id,
                       cluster_size=cluster_size,
