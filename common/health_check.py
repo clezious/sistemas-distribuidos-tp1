@@ -16,7 +16,7 @@ class HealthCheck:
         while self.should_stop is False:
             try:
                 client_socket, address = self.server_socket.accept()
-                logging.info("HealthCheck request from %s", address)
+                logging.debug("HealthCheck request from %s", address)
                 client_socket.shutdown(socket.SHUT_RDWR)
                 client_socket.close()
             except OSError:
