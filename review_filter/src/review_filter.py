@@ -107,7 +107,7 @@ class ReviewFilter:
         logging.info("Filter reset for client id %s", client_id)
 
     def handle_books_eof(self, eof_packet: EOFPacket):
-        logging.error(f" [x] Received Books EOF: {eof_packet}")
+        logging.debug(f" [x] Received Books EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
 
