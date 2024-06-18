@@ -51,7 +51,7 @@ def main():
     initialize_log(config_params["logging_level"])
 
     book_client = ClientSender(
-        "../datasets/books_data_test.csv",
+        "../datasets/books_data.csv",
         config_params["book_boundary_ip"],
         config_params["book_boundary_port"])
     client_id = book_client.run()
@@ -59,7 +59,7 @@ def main():
     logging.info(f"Time taken to send books: {time.time() - start}")
 
     review_client = ClientSender(
-        "../datasets/Books_rating_test.csv",
+        "../datasets/Books_rating.csv",
         config_params["review_boundary_ip"],
         config_params["review_boundary_port"],
         client_id=client_id

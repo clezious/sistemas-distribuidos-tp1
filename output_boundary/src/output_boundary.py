@@ -2,7 +2,6 @@ import logging
 import threading
 import queue
 import socket
-from time import sleep
 from common.middleware import Middleware
 from common.packet import Packet
 from common.packet_type import PacketType
@@ -86,20 +85,20 @@ class OutputBoundary():
     def _handle_query_result(self, query: int):
         def handle_result(result: Packet):
             result_packet = ResultPacket(query, result)
-            sleep(2)
-            if result_packet.client_id in self.queues:
-                self.queues[result_packet.client_id].put((query, result_packet))
-            else:
-                logging.error("Client %s not found", result_packet.client_id)
-                # TODO: Requeue packet since client is not connected yet
+            if result_packet.client_id not in self.queues:
+                with self.lock:
+                    self.queues[result_packet.client_id] = queue.Queue(maxsize=QUEUE_SIZE)
+            self.queues[result_packet.client_id].put((query, result_packet))
 
         return handle_result
 
     def _handle_query_eof(self, query: int):
         def handle_eof(eof_packet: Packet):
             logging.info("Query %s finished", query)
-            if eof_packet.client_id in self.queues:
-                self.queues[eof_packet.client_id].put((query, eof_packet))
+            if eof_packet.client_id not in self.queues:
+                with self.lock:
+                    self.queues[eof_packet.client_id] = queue.Queue(maxsize=QUEUE_SIZE)
+            self.queues[eof_packet.client_id].put((query, eof_packet))
 
         return handle_eof
 
@@ -135,9 +134,10 @@ class OutputBoundary():
             self, client_socket: socket.socket):
         try:
             client_id = self.__receive_client_id(client_socket)
-            results_queue = queue.Queue(maxsize=QUEUE_SIZE)
+            results_queue = self.queues.get(client_id, queue.Queue(maxsize=QUEUE_SIZE))
             with self.lock:
-                self.queues[client_id] = results_queue
+                if client_id not in self.queues:
+                    self.queues[client_id] = results_queue
                 self.client_sockets.add(client_socket)
         except BrokenPipeError:
             logging.error("Connection closed by client")

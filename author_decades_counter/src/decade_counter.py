@@ -16,12 +16,12 @@ class DecadeCounter:
                  output_queues: list,
                  instance_id: int,
                  cluster_size: int):
-        self.authors: dict[int, dict[str, set]] = {}
+        self.authors: dict[int, dict[str, list]] = {}
         self.instance_id = instance_id
         self.cluster_size = cluster_size
         self.persistence_manager = PersistenceManager(
             f'../storage/decade_counter_{instance_id}')
-        # self._init_state()
+        self._init_state()
         self.middleware = Middleware(
             input_queues=input_queues,
             callback=self.add_decade,
@@ -41,6 +41,7 @@ class DecadeCounter:
         logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            self.persistence_manager.delete_keys(f"{AUTHOR_PREFIX}{eof_packet.client_id}_")
             self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
@@ -57,36 +58,34 @@ class DecadeCounter:
         if not author or not book.year:
             return
 
+        client_id = book.client_id
         decade = (book.year // 10) * 10
-        self.authors[book.client_id] = self.authors.get(book.client_id, {})
-        self.authors[book.client_id][author] = self.authors[book.client_id].get(
-            author, set())
+        self.authors[client_id] = self.authors.get(client_id, {})
+        self.authors[client_id][author] = self.authors[client_id].get(author, [])
 
-        if decade in self.authors[book.client_id][author]:
+        if decade in self.authors[client_id][author]:
             return
 
-        self.authors[book.client_id][author].add(decade)
-        key = f'{AUTHOR_PREFIX}{book.trace_id}'
+        self.authors[client_id][author].append(decade)
+        key = f'{AUTHOR_PREFIX}{client_id}_{author}'
         self.persistence_manager.put(
-            key, json.dumps(list(self.authors[book.client_id][author])))
+            key, json.dumps(self.authors[client_id][author]))
 
-        if len(self.authors[book.client_id][author]) == REQUIRED_DECADES:
+        if len(self.authors[client_id][author]) == REQUIRED_DECADES:
             authors_packet = Authors(
-                client_id=book.client_id,
+                client_id=client_id,
                 packet_id=book.packet_id,
                 authors=author
             )
-            logging.info(
-                "Author %s has published books in %i different decades.",
-                author, REQUIRED_DECADES)
+            logging.info(f"Author {author} has published books in {REQUIRED_DECADES} different decades. Client id: {client_id}")
             self.middleware.send(authors_packet.encode())
 
     def _init_state(self):
-        # FIXME
         self.authors = {}
-        keys = self.persistence_manager.get_keys('author_')
-        logging.info(f"Initializing state with keys: {keys}")
-        for key in keys:
-            author = key.strip('author_')
-            self.authors[author] = json.loads(self.persistence_manager.get(key))
+        for key in self.persistence_manager.get_keys(AUTHOR_PREFIX):
+            [client_id, author] = key.removeprefix(AUTHOR_PREFIX).split('_')
+            client_id = int(client_id)
+            if client_id not in self.authors:
+                self.authors[client_id] = []
+            self.authors[client_id][author] = json.loads(self.persistence_manager.get(key))
         logging.info(f"State initialized with {self.authors}")
