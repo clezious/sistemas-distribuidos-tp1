@@ -1,14 +1,24 @@
 import json
 from common.packet import Packet
 from common.packet_decoder import PacketDecoder
+from common.packet_type import PacketType
 
 LENGTH_BYTES = 2
 
 
-class ResultPacket():
+class ResultPacket(Packet):
     def __init__(self, query: int, result: Packet):
+        super().__init__(result.client_id, result.packet_id)
         self.query = query
         self.result = result
+
+    @property
+    def packet_type(self) -> PacketType:
+        return PacketType.RESULT
+
+    @property
+    def payload(self) -> list:
+        return [self.query, self.result.encode()]
 
     def encode(self) -> str:
         encoded_res = json.dumps([self.query, self.result.encode()])

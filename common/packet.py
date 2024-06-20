@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 import json
-import uuid
 
 from common.packet_type import PacketType
 
 
 class Packet(ABC):
-    def __init__(self, trace_id: str = None):
-        self.trace_id = trace_id if trace_id else str(uuid.uuid4())
+    def __init__(self, client_id: int, packet_id: int):
+        self.client_id = client_id
+        self.packet_id = packet_id
 
     @property
     @abstractmethod
@@ -20,12 +20,23 @@ class Packet(ABC):
         pass
 
     def encode(self) -> str:
-        return json.dumps([self.trace_id, self.packet_type.value, self.payload])
+        return json.dumps(
+            [
+                self.client_id,
+                self.packet_id,
+                self.packet_type.value,
+                self.payload
+            ]
+        )
 
     @staticmethod
     @abstractmethod
-    def decode(data: str, trace_id: str) -> 'Packet':
+    def decode(fields: list[str]) -> "Packet":
         pass
+
+    @property
+    def trace_id(self) -> str:
+        return f"{self.client_id}-{self.packet_id}"
 
     def __str__(self):
         return self.encode()

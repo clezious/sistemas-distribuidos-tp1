@@ -6,8 +6,9 @@ class BookStats(Packet):
     def __init__(self,
                  title: str,
                  score: float,
-                 trace_id: str = None):
-        super().__init__(trace_id)
+                 client_id: int,
+                 packet_id: int):
+        super().__init__(client_id, packet_id)
         self.title = title
         self.score = score
 
@@ -21,10 +22,12 @@ class BookStats(Packet):
                 self.score]
 
     @staticmethod
-    def decode(fields: list[str], trace_id: str) -> 'BookStats':
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'BookStats':
         title = fields[0]
         score = fields[1]
-        return BookStats(title, score, trace_id)
+        return BookStats(title, score, client_id, packet_id)
 
     def __lt__(self, other: 'BookStats'):
         return self.score < other.score

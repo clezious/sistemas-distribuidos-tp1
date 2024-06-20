@@ -5,8 +5,9 @@ from common.packet import Packet
 class Authors(Packet):
     def __init__(self,
                  authors: str,
-                 trace_id: str = None):
-        super().__init__(trace_id)
+                 client_id: int,
+                 packet_id: int):
+        super().__init__(client_id, packet_id)
         self.authors = authors
 
     @property
@@ -18,6 +19,6 @@ class Authors(Packet):
         return [self.authors]
 
     @staticmethod
-    def decode(fields: list[str], trace_id: str) -> 'Authors':
+    def decode(fields: list[str], client_id: int, packet_id: int) -> 'Authors':
         authors = fields[0]
-        return Authors(authors, trace_id)
+        return Authors(authors, client_id, packet_id)

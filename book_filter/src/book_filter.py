@@ -17,11 +17,10 @@ class BookFilter:
                  output_exchanges: list,
                  instance_id: int,
                  cluster_size: int):
-        self.middleware: Middleware = Middleware(input_queues=input_queues,
-                                                 callback=self.filter_book,
-                                                 eof_callback=self.handle_eof,
-                                                 output_queues=output_queues,
-                                                 output_exchanges=output_exchanges)
+        self.middleware: Middleware = Middleware(
+            input_queues=input_queues, callback=self.filter_book,
+            eof_callback=self.handle_eof, output_queues=output_queues,
+            output_exchanges=output_exchanges)
         self.instance_id = instance_id
         self.cluster_size = cluster_size
 
@@ -38,7 +37,10 @@ class BookFilter:
             eof_packet.ack_instances.append(self.instance_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self.middleware.send(EOFPacket().encode())
+            self.middleware.send(
+                EOFPacket(
+                    eof_packet.client_id,
+                    eof_packet.packet_id).encode())
             logging.debug(f" [x] Sent EOF: {eof_packet}")
         else:
             self.middleware.return_eof(eof_packet)

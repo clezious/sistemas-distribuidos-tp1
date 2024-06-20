@@ -16,8 +16,9 @@ class Book(Packet):
                  publisher: str,
                  year: int,
                  categories: str,
-                 trace_id: str = None):
-        super().__init__(trace_id)
+                 client_id: int,
+                 packet_id: int):
+        super().__init__(client_id, packet_id)
         self.title = title
         self.description = description
         self.authors = authors
@@ -26,7 +27,7 @@ class Book(Packet):
         self.categories = categories
 
     @staticmethod
-    def from_csv_row(csv_row: str):
+    def from_csv_row(csv_row: str, client_id: int, packet_id: int) -> 'Book':
         # Title,description,authors,image,previewLink,publisher,publishedDate,infoLink,categories,ratingsCount
         fields = list(csv.reader([csv_row]))[0]
         title = fields[0].strip()
@@ -39,7 +40,15 @@ class Book(Packet):
             if not field:
                 return None
 
-        return Book(title, description, authors, publisher, year, categories)
+        return Book(
+            title,
+            description,
+            authors,
+            publisher,
+            year,
+            categories,
+            client_id,
+            packet_id)
 
     @property
     def packet_type(self):
@@ -71,14 +80,22 @@ class Book(Packet):
             return []
 
     @staticmethod
-    def decode(fields: list[str], trace_id: str) -> 'Book':
+    def decode(fields: list[str], client_id: int, packet_id: int) -> 'Book':
         title = fields[0]
         description = fields[1]
         authors = fields[2]
         publisher = fields[3]
         year = fields[4]
         categories = fields[5]
-        return Book(title, description, authors, publisher, year, categories, trace_id)
+        return Book(
+            title,
+            description,
+            authors,
+            publisher,
+            year,
+            categories,
+            client_id,
+            packet_id)
 
     def __str__(self):
         return self.encode()

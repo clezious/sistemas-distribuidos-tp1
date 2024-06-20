@@ -7,15 +7,17 @@ from common.receive_utils import receive_line
 from common.result_packet import ResultPacket
 
 LENGTH_BYTES = 2
+CLIENT_ID_BYTES = 2
 
 
 class ClientReceiver():
-    def __init__(self, ip: str, port: int, output_dir: str):
+    def __init__(self, ip: str, port: int, output_dir: str, client_id: int):
         self.ip = ip
         self.port = port
         self.socket = None
         self.results = {query: [] for query in range(1, 6)}
         self.output_dir = output_dir
+        self.client_id = client_id
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
@@ -23,8 +25,14 @@ class ClientReceiver():
         self.__connect()
         with self.socket:
             logging.info("Client waiting for results")
+            self.__send_client_id()
             self._handle_server_connection(self.socket)
             self._output_results()
+
+    def __send_client_id(self):
+        client_id_encoded = self.client_id.to_bytes(
+            CLIENT_ID_BYTES, byteorder='big')
+        self.socket.sendall(client_id_encoded)
 
     def _output_results(self):
         for query in self.results.keys():

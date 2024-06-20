@@ -30,7 +30,12 @@ class SentimentAnalyzer:
 
     def _calculate_sentiment(self, review: ReviewAndAuthor):
         sentiment = TextBlob(review.text).sentiment.polarity
-        stats = BookStats(review.book_title, sentiment)
+        stats = BookStats(
+            review.book_title,
+            sentiment,
+            review.client_id,
+            review.packet_id
+        )
         self.middleware.send(stats.encode())
         logging.debug("Review %s - Sentiment score: %f",
                       review.book_title, sentiment)
@@ -40,7 +45,10 @@ class SentimentAnalyzer:
             eof_packet.ack_instances.append(self.instance_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
-            self.middleware.send(EOFPacket().encode())
+            self.middleware.send(EOFPacket(
+                eof_packet.client_id,
+                eof_packet.packet_id,
+            ).encode())
             logging.debug("Forwarded EOF")
         else:
             self.middleware.return_eof(eof_packet)

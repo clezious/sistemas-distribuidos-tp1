@@ -101,12 +101,14 @@ class ConfigGenerator:
                           image: str,
                           environment: list[str],
                           networks: list[str],
-                          volumes: list[str] = [],
+                          volumes: list[str] = None,
                           depends_on: list[str] = [],
                           input_queues: dict[str, str] = None,
                           output_queues: list[str] = None,
                           output_exchanges: list[str] = None,
                           instances: int = 1):
+        if volumes is None:
+            volumes = []
         volumes.append("storage:/storage")
         for instance_id in range(instances):
             instance_suffix = "" if instances == 1 else f"_{instance_id}"
@@ -273,18 +275,21 @@ class ConfigGenerator:
         )
 
     def _generate_client(self):
-        self._generate_service(
-            "client",
-            "client:latest",
-            ["BOOK_BOUNDARY_PORT=12345",
-             "BOOK_BOUNDARY_IP=book_boundary",
-             "REVIEW_BOUNDARY_PORT=12345",
-             "REVIEW_BOUNDARY_IP=review_boundary",
-             "RESULT_BOUNDARY_PORT=12345",
-             "RESULT_BOUNDARY_IP=output_boundary"],
-            ["test_net"],
-            ["./datasets:/datasets:ro", "./output:/output"],
-            depends_on=["book_boundary", "review_boundary"])
+        instances = self.config_params["client"]
+        for instance_id in range(instances):
+            self._generate_service(
+                f"client-{instance_id}",
+                "client:latest",
+                ["BOOK_BOUNDARY_PORT=12345",
+                 "BOOK_BOUNDARY_IP=book_boundary",
+                 "REVIEW_BOUNDARY_PORT=12345",
+                 "REVIEW_BOUNDARY_IP=review_boundary",
+                 "RESULT_BOUNDARY_PORT=12345",
+                 "RESULT_BOUNDARY_IP=output_boundary"],
+                ["test_net"],
+                ["./datasets:/datasets:ro", f"./output/output-{instance_id}:/output"],
+                depends_on=["book_boundary", "review_boundary"],
+            )
 
     def _generate_input_boundary(self,
                                  boundary_type: str,

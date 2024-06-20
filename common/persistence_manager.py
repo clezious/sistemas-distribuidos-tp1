@@ -120,11 +120,16 @@ class PersistenceManager:
             logging.debug(f"Generating internal key for key: {key}")
             internal_key = str(uuid.uuid4())
             self._keys_index[key] = internal_key
-            self._append(f'{self.storage_path}/{KEYS_INDEX_KEY}', json.dumps([key, internal_key]))
+            self._append(f'{self.storage_path}/{KEYS_INDEX_KEY}',
+                         json.dumps([key, internal_key]))
         return internal_key
 
     def _init_state(self):
-        keys_index = [json.loads(entry) for entry in self._read(f'{self.storage_path}/{KEYS_INDEX_KEY}').splitlines()]
+        keys_index = [
+            json.loads(entry)
+            for entry in
+            self._read(f'{self.storage_path}/{KEYS_INDEX_KEY}').splitlines()]
         for entry in keys_index:
             self._keys_index[entry[0]] = entry[1]
-        logging.debug(f"Initialized PersistenceManager with state: {self._keys_index}")
+        logging.debug(
+            f"Initialized PersistenceManager with state: {self._keys_index}")

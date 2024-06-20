@@ -16,6 +16,12 @@ RABBITMQ_HEARTBEAT = int(os.getenv('RABBITMQ_HEARTBEAT', '1200'))
 PROCESSED_KEY = 'processed'
 
 
+class CallbackAction:
+    ACK = "ack"
+    NACK = "nack"
+    REQUEUE = "requeue"
+
+
 class Middleware:
     def __init__(self,
                  input_queues: dict[str, str] = {},
@@ -27,8 +33,8 @@ class Middleware:
                  instance_id: int = None,
                  persistence_manager: PersistenceManager = None,
                  ):
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+            RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=100)
         self.input_queues: dict[str, str] = {}
@@ -49,7 +55,8 @@ class Middleware:
         for queue, exchange in input_queues.items():
             suffix = "" if self.instance_id is None else f'_{self.instance_id}'
             self.add_input_queue(
-                f'{queue}{suffix}', self.callback, self.eof_callback, exchange=exchange)
+                f'{queue}{suffix}', self.callback, self.eof_callback,
+                exchange=exchange)
 
     def _init_output(self):
         if self.n_output_instances is None:
@@ -121,30 +128,34 @@ class Middleware:
             self.input_queues[input_queue] = exchange
 
     def _callback_wrapper(self,
-                          callback: Callable[[Packet], any],
+                          callback: Callable[[Packet], CallbackAction],
                           eof_callback: Callable[[EOFPacket], any],
                           auto_ack: bool
                           ):
 
         def wrapper(ch, method, properties, body):
             packet = PacketDecoder.decode(body)
-            should_ack = True
+            action = CallbackAction.ACK
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")
                 if eof_callback:
-                    eof_callback(packet)
+                    action = eof_callback(packet) or CallbackAction.ACK
             else:
                 if not self.is_duplicate(packet.trace_id):
-                    should_ack = callback(packet)
-                    should_ack = True if should_ack is None else should_ack
-                    if should_ack:
+                    action = callback(packet) or CallbackAction.ACK
+                    if action == CallbackAction.ACK:
                         self.mark_as_processed(packet.trace_id)
 
             if not auto_ack:
-                if should_ack:
+                if action == CallbackAction.ACK:
                     self.ack(method.delivery_tag)
-                else:
+                elif action == CallbackAction.NACK:
                     self.nack(method.delivery_tag)
+                elif action == CallbackAction.REQUEUE:
+                    self.send_to_queue(method.routing_key, body)
+                    self.ack(method.delivery_tag)
+                    logging.debug("Requeued packet to %s", method.routing_key)
+
         return wrapper
 
     def ack(self, delivery_tag):
@@ -182,7 +193,9 @@ class Middleware:
 
     def init_state(self):
         if self.persistence_manager:
-            self.state[PROCESSED_KEY] = self.persistence_manager.get(PROCESSED_KEY).splitlines()
+            self.state[PROCESSED_KEY] = self.persistence_manager.get(
+                PROCESSED_KEY).splitlines()
             logging.debug(f"Initialized state with {self.state[PROCESSED_KEY]}")
         else:
-            logging.debug("No persistence manager, skipping state initialization")
+            logging.debug(
+                "No persistence manager, skipping state initialization")

@@ -8,8 +8,9 @@ class ReviewAndAuthor(Packet):
                  score: float,
                  text: str,
                  authors: str,
-                 trace_id: str = None):
-        super().__init__(trace_id)
+                 client_id: int,
+                 packet_id: int):
+        super().__init__(client_id, packet_id)
         self.book_title = book_title
         self.score = score
         self.text = text
@@ -24,9 +25,12 @@ class ReviewAndAuthor(Packet):
         return [self.book_title, self.score, self.text, self.authors]
 
     @staticmethod
-    def decode(fields: list[str], trace_id: str) -> 'ReviewAndAuthor':
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'ReviewAndAuthor':
         title = fields[0]
         score = fields[1]
         text = fields[2]
         authors = fields[3]
-        return ReviewAndAuthor(title, score, text, authors, trace_id)
+        return ReviewAndAuthor(
+            title, score, text, authors, client_id, packet_id)

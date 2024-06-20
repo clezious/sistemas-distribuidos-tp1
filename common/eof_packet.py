@@ -4,9 +4,11 @@ from common.packet_type import PacketType
 
 class EOFPacket(Packet):
     def __init__(self,
-                 ack_instances: list[int] = None,
-                 trace_id: str = None):
-        super().__init__(trace_id)
+                 client_id: int,
+                 packet_id: int,
+                 ack_instances: list[int] = None
+                 ):
+        super().__init__(client_id, packet_id)
         self.ack_instances = ack_instances or []
 
     @property
@@ -18,9 +20,11 @@ class EOFPacket(Packet):
         return [self.ack_instances]
 
     @staticmethod
-    def decode(fields: list[str], trace_id: str) -> 'EOFPacket':
+    def decode(
+            fields: list[str],
+            client_id: int, packet_id: int) -> 'EOFPacket':
         ack_instances = fields[0]
-        return EOFPacket(ack_instances, trace_id)
+        return EOFPacket(client_id, packet_id, ack_instances)
 
     def __str__(self):
         return self.encode()
