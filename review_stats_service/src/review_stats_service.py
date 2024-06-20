@@ -134,7 +134,7 @@ class ReviewStatsService:
     def _init_state(self):
         self.book_reviews = {}
         for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
-            [client_id, book_title] = key.removeprefix(REVIEW_STATS_KEY_PREFIX).split('_')
+            [client_id, book_title] = key.removeprefix(REVIEW_STATS_KEY_PREFIX).split('_', maxsplit=1)
             client_id = int(client_id)
             stats = json.loads(self.persistence_manager.get(key))
             if client_id not in self.book_reviews:

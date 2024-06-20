@@ -83,7 +83,7 @@ class DecadeCounter:
     def _init_state(self):
         self.authors = {}
         for key in self.persistence_manager.get_keys(AUTHOR_PREFIX):
-            [client_id, author] = key.removeprefix(AUTHOR_PREFIX).split('_')
+            [client_id, author] = key.removeprefix(AUTHOR_PREFIX).split('_', maxsplit=1)
             client_id = int(client_id)
             if client_id not in self.authors:
                 self.authors[client_id] = {}
