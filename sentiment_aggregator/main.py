@@ -20,7 +20,7 @@ def main():
                                                output_queues)
     logging.info("Review mean aggregator is starting")
     healthcheck = HealthCheck(port=healthcheck_port)
-    healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread = threading.Thread(target=healthcheck.start, daemon=True)
     healthcheck_thread.start()
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [sentiment_aggregator.shutdown, healthcheck.shutdown, healthcheck_thread.join]])

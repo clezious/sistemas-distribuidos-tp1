@@ -20,7 +20,7 @@ def main():
     healthcheck_port = json.loads(os.getenv("HEALTHCHECK_PORT") or '8888')
 
     healthcheck = HealthCheck(port=healthcheck_port)
-    healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread = threading.Thread(target=healthcheck.start, daemon=True)
     healthcheck_thread.start()
 
     docktor = Docktor(instance_id=instance_id,
