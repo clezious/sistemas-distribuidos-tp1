@@ -55,7 +55,7 @@ class ReviewStatsService:
     def _get_books_with_required_reviews(self, client_id):
         filtered_books = filter(
             lambda r: r[1]["total_reviews"] >= REQUIRED_TOTAL_REVIEWS,
-            self.book_reviews[client_id].items()
+            self.book_reviews.get(client_id, {}).items()
         )
         return dict(filtered_books)
 
@@ -75,6 +75,7 @@ class ReviewStatsService:
             logging.info("Sent top book to queue: %s", book_title)
 
         self.book_reviews[client_id] = {}
+        self.persistence_manager.delete_keys(f"{REVIEW_STATS_KEY_PREFIX}{client_id}_")
         logging.info("Reset state for client: %s", client_id)
 
     def _handle_eof(self, eof_packet: EOFPacket):
@@ -93,43 +94,50 @@ class ReviewStatsService:
             self.middleware.return_eof(eof_packet)
 
     def _update_review_stats(self, review: Review):
-        self.book_reviews[review.client_id][review.book_title][
-            "total_reviews"] += 1
+        self.book_reviews[review.client_id][review.book_title]["total_reviews"] += 1
         self.book_reviews[review.client_id][review.book_title]["total_rating"] += review.score
+        self.book_reviews[review.client_id][review.book_title]["packet_id"] = review.packet_id
 
     def _save_review(self, review: ReviewAndAuthor):
-        if review.client_id not in self.book_reviews:
-            self.book_reviews[review.client_id] = {}
-
-        if review.book_title not in self.book_reviews[review.client_id]:
-            self.book_reviews[review.client_id][review.book_title] = {
-                "total_reviews": 0,
-                "total_rating": 0,
+        client_id = review.client_id
+        if client_id not in self.book_reviews:
+            self.book_reviews[client_id] = {}
+        if review.book_title not in self.book_reviews[client_id]:
+            self.book_reviews[client_id][review.book_title] = {
+                "total_reviews": 1,
+                "total_rating": review.score,
                 "authors": review.authors,
                 "packet_id": review.packet_id,
             }
+        else:
+            # Only update state if it is not a duplicate
+            # (received and saved but then shutdown and restarted before acking the message)
+            if self.book_reviews[client_id][review.book_title]["packet_id"] != review.packet_id:
+                self._update_review_stats(review)
 
-        self._update_review_stats(review)
-        key = f'{REVIEW_STATS_KEY_PREFIX}{review.book_title}'
+        key = f'{REVIEW_STATS_KEY_PREFIX}{client_id}_{review.book_title}'
         self.persistence_manager.put(
             key,
-            json.dumps(self.book_reviews[review.client_id][review.book_title])
+            json.dumps(self.book_reviews[client_id][review.book_title])
         )
         logging.debug("Received and saved review for: %s", review.book_title)
 
-        total_reviews = self.book_reviews[review.client_id][review.book_title]["total_reviews"]
+        total_reviews = self.book_reviews[client_id][review.book_title]["total_reviews"]
         if total_reviews == REQUIRED_TOTAL_REVIEWS:
             book = Book(review.book_title, "", review.authors,
-                        "", -1, [], review.client_id, review.packet_id)
+                        "", -1, [], client_id, review.packet_id)
             self.middleware.send_to_queue(
                 self.required_reviews_books_queue,
                 book.encode())
-            logging.info("Sent book to required reviews queue: %s", book.title)
+            logging.info(f"Sent book to required reviews queue: {book.title}. Client id: {client_id}")
 
     def _init_state(self):
         self.book_reviews = {}
         for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
-            book_title = key.strip(REVIEW_STATS_KEY_PREFIX)
+            [client_id, book_title] = key.removeprefix(REVIEW_STATS_KEY_PREFIX).split('_')
+            client_id = int(client_id)
             stats = json.loads(self.persistence_manager.get(key))
-            self.book_reviews[book_title] = stats
+            if client_id not in self.book_reviews:
+                self.book_reviews[client_id] = {}
+            self.book_reviews[client_id][book_title] = stats
         logging.info(f"State initialized with {self.book_reviews}")

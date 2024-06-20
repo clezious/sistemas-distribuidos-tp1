@@ -1,4 +1,3 @@
-import heapq
 import logging
 from common.book_stats import BookStats
 from common.eof_packet import EOFPacket
@@ -36,32 +35,43 @@ class ReviewMeanAggregator:
         self.middleware.shutdown()
 
     def _handle_eof(self, eof_packet: EOFPacket):
-        result = [heapq.heappop(self.books_stats[eof_packet.client_id])
-                  for _ in range(len(self.books_stats[eof_packet.client_id]))]
-        result.reverse()
-        for book_stats in result:
+        client_id = eof_packet.client_id
+        for book_stats in self.books_stats[client_id]:
             self.middleware.send(book_stats.encode())
         self.middleware.send(EOFPacket(
             eof_packet.client_id,
             eof_packet.packet_id
         ).encode())
+        self.persistence_manager.delete_keys(f"{BOOK_STATS_KEY}_{client_id}")
         self.books_stats.pop(eof_packet.client_id)
 
     def _save_stats(self, book_stats: BookStats):
-        if book_stats.client_id not in self.books_stats:
-            self.books_stats[book_stats.client_id] = []
+        client_id = book_stats.client_id
+        if client_id not in self.books_stats:
+            self.books_stats[client_id] = []
+        # Only save the new packet if it is not already in the list.
+        # If it is, it means that the packet was already processed but not acknowledged.
+        if book_stats.packet_id not in [stats.packet_id for stats in self.books_stats[client_id]]:
+            # If the list is not full, add the new packet
+            if len(self.books_stats[client_id]) < MAX_BOOKS:
+                self.books_stats[client_id].append(book_stats)
+            # If the list is full, replace the smallest packet with the new one (if the new one is bigger)
+            elif self.books_stats[client_id][-1] < book_stats:
+                self.books_stats[client_id][-1] = book_stats
+            # If the new packet is smaller than the smallest packet, we dont have to change anything
+            else:
+                return
 
-        heapq.heappush(self.books_stats[book_stats.client_id], book_stats)
-        if len(self.books_stats[book_stats.client_id]) > MAX_BOOKS:
-            heapq.heappop(self.books_stats[book_stats.client_id])
-
-        self.persistence_manager.put(BOOK_STATS_KEY, json.dumps(
-            [book_stats.encode()
-             for book_stats in self.books_stats[book_stats.client_id]]))
+            # Sort the list after adding the new packet, then persist the state
+            self.books_stats[client_id].sort(reverse=True)
+            self.persistence_manager.put(f"{BOOK_STATS_KEY}_{client_id}",
+                                         json.dumps([book_stats.encode() for book_stats in self.books_stats[client_id]]))
 
     def _init_state(self):
-        state = json.loads(self.persistence_manager.get(BOOK_STATS_KEY) or '[]')
-        # TODO: Add support for multiple clients
-        # self.books_stats = [PacketDecoder.decode(book_stats) for book_stats in state]
-        # logging.info(
-        #     f"State initialized with {[book_stats.encode() for book_stats in self.books_stats]}")
+        for key in self.persistence_manager.get_keys(prefix=BOOK_STATS_KEY):
+            client_id = int(key.removeprefix(f"{BOOK_STATS_KEY}_"))
+            state = json.loads(self.persistence_manager.get(key) or '[]')
+            self.books_stats[client_id] = [PacketDecoder.decode(book_stats) for book_stats in state]
+        logging.info("Initialized review mean aggregator with state: ")
+        for client_id, client_book_stats in self.books_stats.items():
+            logging.info(f"client_id: {client_id}, book_stats: {[book_stats.encode() for book_stats in client_book_stats]}")

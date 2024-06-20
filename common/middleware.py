@@ -36,7 +36,7 @@ class Middleware:
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
             RABBITMQ_HOST, RABBITMQ_PORT, heartbeat=RABBITMQ_HEARTBEAT))
         self.channel = self.connection.channel()
-        self.channel.basic_qos(prefetch_count=1)
+        self.channel.basic_qos(prefetch_count=100)
         self.input_queues: dict[str, str] = {}
         self.output_queues = output_queues
         self.output_exchanges = output_exchanges
@@ -109,7 +109,7 @@ class Middleware:
                         eof_callback: Callable = None,
                         exchange: str = "",
                         exchange_type: str = "fanout",
-                        auto_ack=True):
+                        auto_ack=False):
         self.channel.queue_declare(queue=input_queue)
         if exchange:
             self.channel.exchange_declare(
@@ -139,12 +139,12 @@ class Middleware:
             if packet.packet_type == PacketType.EOF:
                 logging.debug("Received EOF packet")
                 if eof_callback:
-                    eof_callback(packet)
+                    action = eof_callback(packet) or CallbackAction.ACK
             else:
                 if not self.is_duplicate(packet.trace_id):
-                    action = callback(packet)
-                    # WARNING: A failure in this line could lead to a packet being processed twice!
-                    self.mark_as_processed(packet.trace_id)
+                    action = callback(packet) or CallbackAction.ACK
+                    if action == CallbackAction.ACK:
+                        self.mark_as_processed(packet.trace_id)
 
             if not auto_ack:
                 if action == CallbackAction.ACK:
@@ -152,9 +152,9 @@ class Middleware:
                 elif action == CallbackAction.NACK:
                     self.nack(method.delivery_tag)
                 elif action == CallbackAction.REQUEUE:
+                    self.send_to_queue(method.routing_key, body)
                     self.ack(method.delivery_tag)
                     logging.debug("Requeued packet to %s", method.routing_key)
-                    self.send_to_queue(method.routing_key, body)
 
         return wrapper
 

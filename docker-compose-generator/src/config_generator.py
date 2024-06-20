@@ -286,7 +286,7 @@ class ConfigGenerator:
                  "RESULT_BOUNDARY_PORT=12345",
                  "RESULT_BOUNDARY_IP=output_boundary"],
                 ["test_net"],
-                ["./datasets:/datasets:ro", f"./outputs/output-{instance_id}:/output"],
+                ["./datasets:/datasets:ro", f"./output/output-{instance_id}:/output"],
                 depends_on=["book_boundary", "review_boundary"],
             )
 
