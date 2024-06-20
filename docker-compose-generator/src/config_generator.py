@@ -42,6 +42,7 @@ class ConfigGenerator:
         self._generate_sentiment_aggregator()
         self._generate_review_mean_aggregator()
         self._generate_output_boundary()
+        self._generate_docktor()
         return self.config
 
     def _generate_routers(self):
@@ -357,4 +358,18 @@ class ConfigGenerator:
             ["test_net"],
             input_queues={"top_10_books": ""},
             output_queues=["query4_result"],
+        )
+
+    def _generate_docktor(self):
+        self._generate_service(
+            service_name="docktor",
+            image="docktor:latest",
+            environment=[
+                'EXCLUDED_CONTAINERS=["rabbitmq", "book_boundary", "review_boundary", "output_boundary", "client"]',
+                "PROJECT_NAME=tp1",
+                "SLEEP_INTERVAL=0.07",
+            ],
+            networks=["test_net"],
+            volumes=["/var/run/docker.sock:/var/run/docker.sock"],
+            instances=self.config_params["docktor"]
         )
