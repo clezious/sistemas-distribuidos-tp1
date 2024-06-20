@@ -3,6 +3,7 @@ import socket
 import logging
 import time
 import random
+
 SOCKET_TIMEOUT = 5
 
 
@@ -47,9 +48,14 @@ class Docktor:
                     self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.client_socket.connect((network_name, self.healthcheck_port))
                     self.client_socket.close()
-                except Exception as e:
-                    print(e)
-                    logging.error(f"Container {network_name} is down. Starting it up.")
+                except (socket.timeout, socket.error) as e:
+                    logging.error(e)
+                    logging.error(f"Container {network_name} is down. Restarting...")
+                    try:
+                        # Kill could fail if the container is not running
+                        container.kill()
+                    except Exception as e:
+                        logging.error(e)
                     container.start()
             time.sleep(self.sleep_interval)
 
