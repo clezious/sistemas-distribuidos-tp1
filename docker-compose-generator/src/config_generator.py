@@ -368,6 +368,7 @@ class ConfigGenerator:
                 'EXCLUDED_CONTAINERS=["rabbitmq", "book_boundary", "review_boundary", "output_boundary", "client"]',
                 "PROJECT_NAME=tp1",
                 "SLEEP_INTERVAL=0.07",
+                "KILL_PROBABILITY_PERCENTAGE=1",
             ],
             networks=["test_net"],
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],

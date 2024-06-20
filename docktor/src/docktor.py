@@ -11,6 +11,7 @@ class Docktor:
                  cluster_size: int,
                  excluded_containers: list[str],
                  project_name: str,
+                 kill_probability_percentage: int = 1,
                  sleep_interval: float = 0.07,
                  healthcheck_port: int = 8888):
         self.client = docker.from_env()
@@ -23,6 +24,7 @@ class Docktor:
             "label": f"com.docker.compose.project={project_name}"
         }
         self.sleep_interval = sleep_interval
+        self.kill_probability_percentage = kill_probability_percentage
 
     def start(self):
         logging.info("Docktor started")
@@ -34,7 +36,7 @@ class Docktor:
             network_name = container.name.split("-")[1]
             if network_name not in self.excluded_containers and not network_name == self.instance_name:
                 dice_throw = random.randint(0, 100)
-                if dice_throw == 0 and container.status == 'running':
+                if self.kill_probability_percentage > dice_throw and container.status == 'running':
                     logging.info(f"KILLING {network_name} INSTEAD OF CHECKING HEALTHCHECK")
                     container.kill()
                     continue
