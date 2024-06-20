@@ -21,7 +21,7 @@ def main():
 
     book_filter = BookFilter(input_queues, output_queues, output_exchanges, instance_id, cluster_size)
     healthcheck = HealthCheck(port=healthcheck_port)
-    healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread = threading.Thread(target=healthcheck.start, daemon=True)
     healthcheck_thread.start()
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [book_filter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])

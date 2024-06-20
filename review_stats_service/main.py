@@ -27,7 +27,7 @@ def main():
                                        cluster_size)
     logging.info("Review stats service %i is starting", instance_id)
     healthcheck = HealthCheck(port=healthcheck_port)
-    healthcheck_thread = threading.Thread(target=healthcheck.start)
+    healthcheck_thread = threading.Thread(target=healthcheck.start, daemon=True)
     healthcheck_thread.start()
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [stats_service.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
