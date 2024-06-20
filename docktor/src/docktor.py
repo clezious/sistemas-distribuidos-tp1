@@ -3,6 +3,7 @@ import socket
 import logging
 import time
 import random
+SOCKET_TIMEOUT = 5
 
 
 class Docktor:
@@ -25,6 +26,7 @@ class Docktor:
         }
         self.sleep_interval = sleep_interval
         self.kill_probability_percentage = kill_probability_percentage
+        socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
     def start(self):
         logging.info("Docktor started")
