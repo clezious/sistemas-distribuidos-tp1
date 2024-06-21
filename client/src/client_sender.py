@@ -25,6 +25,7 @@ class ClientSender():
         if self.client_id is None:
             client_id_bytes = receive_exact(self.socket, CLIENT_ID_BYTES)
             self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
+            logging.info("Received client id: %d", self.client_id)
         else:
             self.socket.sendall(self.client_id.to_bytes(
                 CLIENT_ID_BYTES, byteorder='big'))
