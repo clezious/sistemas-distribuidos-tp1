@@ -48,7 +48,7 @@ class Middleware:
         self._init_output()
         self.should_stop = False
         self.persistence_manager = persistence_manager
-        self.state = {}
+        self.state: dict[int, set[int]] = {}
         self.init_state()
 
     def _init_input(self, input_queues):
@@ -140,11 +140,14 @@ class Middleware:
                 logging.debug("Received EOF packet")
                 if eof_callback:
                     action = eof_callback(packet) or CallbackAction.ACK
+
+                if action == CallbackAction.ACK:
+                    self.clear_processed(packet.client_id)
             else:
-                if not self.is_duplicate(packet.trace_id):
+                if not self.is_duplicate(packet):
                     action = callback(packet) or CallbackAction.ACK
                     if action == CallbackAction.ACK:
-                        self.mark_as_processed(packet.trace_id)
+                        self.mark_as_processed(packet)
 
             if not auto_ack:
                 if action == CallbackAction.ACK:
@@ -177,25 +180,40 @@ class Middleware:
                 exchange='', routing_key=queue, body=data)
             logging.debug("Sent to queue %s: %s", queue, data)
 
-    def is_duplicate(self, trace_id: str) -> bool:
+    def is_duplicate(self, packet: Packet) -> bool:
         if self.persistence_manager:
-            processed_traces = self.state[PROCESSED_KEY]
-            if trace_id in processed_traces:
-                logging.debug(f"Packet {trace_id} is a duplicate!")
+            processed_ids = self.state.get(packet.client_id, set())
+            if packet.packet_id in processed_ids:
+                logging.debug(f"Packet {packet.trace_id} is a duplicate!")
                 return True
         return False
 
-    def mark_as_processed(self, trace_id: str):
+    def mark_as_processed(self, packet: Packet):
         if self.persistence_manager:
-            self.state[PROCESSED_KEY].append(trace_id)
-            self.persistence_manager.append(PROCESSED_KEY, trace_id)
-            logging.debug(f"Marked {trace_id} as processed")
+            client_id = packet.client_id
+            packet_id = packet.packet_id
+            if client_id not in self.state:
+                self.state[client_id] = set()
+            self.state[client_id].add(packet_id)
+            key = f"{PROCESSED_KEY}_{client_id}"
+            self.persistence_manager.append(key, str(packet_id))
+            logging.debug(f"Marked {packet.trace_id} as processed")
+
+    def clear_processed(self, client_id: int):
+        if self.persistence_manager:
+            key = f"{PROCESSED_KEY}_{client_id}"
+            self.persistence_manager.delete_keys(key)
+            self.state.pop(client_id, None)
+            logging.debug(f"Cleared processed packets for client {client_id}")
 
     def init_state(self):
         if self.persistence_manager:
-            self.state[PROCESSED_KEY] = self.persistence_manager.get(
-                PROCESSED_KEY).splitlines()
-            logging.debug(f"Initialized state with {self.state[PROCESSED_KEY]}")
+            keys = self.persistence_manager.get_keys(PROCESSED_KEY)
+            for key in keys:
+                client_id = int(key.split('_', maxsplit=1)[1])
+                processed_ids = self.persistence_manager.get(key).splitlines()
+                self.state[client_id] = set(processed_ids)
+            logging.debug(f"Initialized state with {self.state}")
         else:
             logging.debug(
                 "No persistence manager, skipping state initialization")
