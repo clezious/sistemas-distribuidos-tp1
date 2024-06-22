@@ -16,6 +16,7 @@ LENGTH_BYTES = 2
 QUEUE_SIZE = 10000
 CLIENT_ID_BYTES = 2
 MAX_CONCURRENT_CONNECTIONS = 5
+TIMEOUT = 5
 
 
 class InputBoundary:
@@ -82,6 +83,8 @@ class InputBoundary:
     def __handle_client_connection(
             self, client_socket: socket.socket, client_id: int):
         packet_id = 0
+
+        client_socket.settimeout(TIMEOUT)
 
         with client_socket:
             if self.boundary_type == BoundaryType.BOOK:
