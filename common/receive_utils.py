@@ -7,7 +7,10 @@ def receive_exact(s: socket.socket, length: int) -> bytes:
     data = b''
     while len(data) < length:
         bytes_remaining = length - len(data)
-        new_data = s.recv(min(MAX_READ_SIZE, bytes_remaining))
+        try:
+            new_data = s.recv(min(MAX_READ_SIZE, bytes_remaining))
+        except socket.timeout:
+            raise EOFError("Timeout while reading data")
         if not new_data:
             raise EOFError("EOF reached while reading data")
         data += new_data

@@ -2,6 +2,7 @@ import logging
 import threading
 import queue
 import socket
+import time
 from common.middleware import Middleware
 from common.packet import Packet
 from common.packet_type import PacketType
@@ -10,6 +11,7 @@ from common.result_packet import ResultPacket
 
 CLIENT_ID_BYTES = 2
 QUEUE_SIZE = 10000
+QUEUE_TIMEOUT = 60 * 60  # 1 hour
 
 
 class OutputBoundary():
@@ -23,7 +25,9 @@ class OutputBoundary():
         self.middleware = None
         self.result_queues = result_queues
         self.lock = threading.Lock()
-        self.queues = {}
+        self.queues: dict[int, queue.Queue] = {}
+        self.access_times: dict[int, float] = {}
+        self.connected_clients = set()
         self.threads = []
         self.client_sockets = set()
         self.should_stop = False
@@ -54,8 +58,11 @@ class OutputBoundary():
     def run(self):
         middleware_receiver_thread = threading.Thread(
             target=self.__middleware_receiver)
+        cleaner_thread = threading.Thread(target=self.__cleaner)
         self.threads.append(middleware_receiver_thread)
+        self.threads.append(cleaner_thread)
         middleware_receiver_thread.start()
+        cleaner_thread.start()
 
         while not self.should_stop:
             client_socket, address = self.server_socket.accept()
@@ -72,6 +79,22 @@ class OutputBoundary():
         self._init_middleware()
         self.middleware.start()
 
+    def __cleaner(self):
+        while not self.should_stop:
+            with self.lock:
+                current_time = time.time()
+                ids_to_delete = [
+                    client_id for client_id,
+                    last_access in self.access_times.items()
+                    if current_time - last_access > QUEUE_TIMEOUT]
+                for client_id in ids_to_delete:
+                    logging.info(
+                        "Deleting inactive queue for client %s", client_id)
+                    self.queues.pop(client_id, None)
+                    self.access_times.pop(client_id, None)
+
+            time.sleep(QUEUE_TIMEOUT // 10)
+
     def _init_middleware(self):
         self.middleware = Middleware()
         for query, queue in self.result_queues.items():
@@ -85,20 +108,28 @@ class OutputBoundary():
     def _handle_query_result(self, query: int):
         def handle_result(result: Packet):
             result_packet = ResultPacket(query, result)
-            if result_packet.client_id not in self.queues:
-                with self.lock:
-                    self.queues[result_packet.client_id] = queue.Queue(maxsize=QUEUE_SIZE)
-            self.queues[result_packet.client_id].put((query, result_packet))
+            client_id = result_packet.client_id
+            with self.lock:
+                if client_id not in self.queues:
+                    self.queues[client_id] = queue.Queue(
+                        maxsize=QUEUE_SIZE)
+                if client_id not in self.connected_clients:
+                    self.access_times[client_id] = time.time()
+            self.queues[client_id].put((query, result_packet))
 
         return handle_result
 
     def _handle_query_eof(self, query: int):
         def handle_eof(eof_packet: Packet):
             logging.info("Query %s finished", query)
-            if eof_packet.client_id not in self.queues:
-                with self.lock:
-                    self.queues[eof_packet.client_id] = queue.Queue(maxsize=QUEUE_SIZE)
-            self.queues[eof_packet.client_id].put((query, eof_packet))
+            client_id = eof_packet.client_id
+            with self.lock:
+                if client_id not in self.queues:
+                    self.queues[client_id] = queue.Queue(
+                        maxsize=QUEUE_SIZE)
+                if client_id not in self.connected_clients:
+                    self.access_times[client_id] = time.time()
+            self.queues[client_id].put((query, eof_packet))
 
         return handle_eof
 
@@ -134,10 +165,13 @@ class OutputBoundary():
             self, client_socket: socket.socket):
         try:
             client_id = self.__receive_client_id(client_socket)
-            results_queue = self.queues.get(client_id, queue.Queue(maxsize=QUEUE_SIZE))
+            results_queue = self.queues.get(
+                client_id, queue.Queue(maxsize=QUEUE_SIZE))
             with self.lock:
                 if client_id not in self.queues:
                     self.queues[client_id] = results_queue
+                self.connected_clients.add(client_id)
+                self.access_times.pop(client_id, None)
                 self.client_sockets.add(client_socket)
         except BrokenPipeError:
             logging.error("Connection closed by client")
@@ -161,5 +195,7 @@ class OutputBoundary():
 
         with self.lock:
             self.queues.pop(client_id)
+            self.connected_clients.remove(client_id)
+            self.access_times.pop(client_id, None)
             self.client_sockets.remove(client_socket)
         logging.info("Client connection with %s closed", client_id)
