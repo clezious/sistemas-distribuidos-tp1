@@ -11,7 +11,7 @@ from common.result_packet import ResultPacket
 
 CLIENT_ID_BYTES = 2
 QUEUE_SIZE = 10000
-QUEUE_TIMEOUT = 60  # 1 hour
+QUEUE_TIMEOUT = 60 * 60  # 1 hour
 
 
 class OutputBoundary():
