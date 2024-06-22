@@ -41,7 +41,7 @@ class DecadeCounter:
         logging.debug(f" [x] Received EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
-            self.persistence_manager.delete_keys(f"{AUTHOR_PREFIX}{eof_packet.client_id}_")
+            self.persistence_manager.delete_keys(f"{AUTHOR_PREFIX}{eof_packet.client_id}_", secondary_key=str(eof_packet.client_id))
             self.authors = {}
 
         if len(eof_packet.ack_instances) == self.cluster_size:
@@ -69,7 +69,7 @@ class DecadeCounter:
         self.authors[client_id][author].append(decade)
         key = f'{AUTHOR_PREFIX}{client_id}_{author}'
         self.persistence_manager.put(
-            key, json.dumps(self.authors[client_id][author]))
+            key, json.dumps(self.authors[client_id][author]), secondary_key=str(client_id))
 
         if len(self.authors[client_id][author]) == REQUIRED_DECADES:
             authors_packet = Authors(
@@ -82,10 +82,10 @@ class DecadeCounter:
 
     def _init_state(self):
         self.authors = {}
-        for key in self.persistence_manager.get_keys(AUTHOR_PREFIX):
+        for (key, secondary_key) in self.persistence_manager.get_keys(AUTHOR_PREFIX):
             [client_id, author] = key.removeprefix(AUTHOR_PREFIX).split('_', maxsplit=1)
             client_id = int(client_id)
             if client_id not in self.authors:
                 self.authors[client_id] = {}
-            self.authors[client_id][author] = json.loads(self.persistence_manager.get(key))
+            self.authors[client_id][author] = json.loads(self.persistence_manager.get(key, secondary_key))
         logging.info(f"State initialized with {self.authors}")

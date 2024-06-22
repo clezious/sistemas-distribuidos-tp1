@@ -3,7 +3,7 @@ import logging
 import uuid
 import json
 
-KEYS_INDEX_KEY = 'keys_index'
+KEYS_INDEX_KEY_PREFIX = 'keys_index_'
 LENGTH_BYTES = 6
 TEMP_FILE = '_temp'
 
@@ -14,7 +14,7 @@ class PersistenceManager:
             logging.debug(f"Creating storage path: {storage_path}")
             os.makedirs(storage_path)
         self.storage_path = storage_path
-        self._keys_index: dict[str, str] = {}
+        self._keys_index: dict[str, dict[str, str]] = {}
         self._init_state()
 
     def _append(self, path, data: str):
@@ -70,66 +70,75 @@ class PersistenceManager:
         except Exception as e:
             logging.error(f"Error deleting {path}: {e}")
 
-    def put(self, key: str, value: str):
+    def put(self, key: str, value: str, secondary_key: str = 'default'):
         try:
-            path = f'{self.storage_path}/{self._get_internal_key(key)}'
+            path = f'{self.storage_path}/{self._get_internal_key(key, secondary_key)}'
             logging.debug(f"Putting value: {value} for key: {key}")
             self._write(path, value)
         except Exception as e:
             logging.error(f"Error putting value: {value} for key: {key}: {e}")
 
-    def get(self, key: str) -> str:
-        if key not in self._keys_index:
+    def get(self, key: str, secondary_key: str = 'default') -> str:
+        if key not in self._keys_index.get(secondary_key, {}):
             return ''
-        path = f'{self.storage_path}/{self._get_internal_key(key)}'
+        path = f'{self.storage_path}/{self._get_internal_key(key, secondary_key)}'
         return self._read(path)
 
-    def append(self, key: str, value: str):
+    def append(self, key: str, value: str, secondary_key: str = 'default'):
         try:
-            path = f'{self.storage_path}/{self._get_internal_key(key)}'
+            path = f'{self.storage_path}/{self._get_internal_key(key, secondary_key)}'
             logging.debug(f"Appending value: {value} for key: {key}")
             self._append(path, value)
         except Exception as e:
             logging.error(f"Error appending value: {value} for key: {key}: {e}")
 
-    def get_keys(self, prefix='') -> list[str]:
+    def get_keys(self, prefix='', secondary_key: str = None) -> list[tuple[str, str]]:
         try:
-            logging.debug(f"Getting keys with prefix: {prefix}")
-            return [key for key in self._keys_index if key.startswith(prefix)]
+            logging.debug(f"Getting keys with prefix: {prefix}, secondary_key: {secondary_key}")
+            keys = []
+            for _secondary_key in [secondary_key] if secondary_key else self._keys_index.keys():
+                keys.extend([(key, _secondary_key) for key in self._keys_index.get(_secondary_key, {}) if key.startswith(prefix)])
+            return keys
         except Exception as e:
             logging.error(f"Error getting keys with prefix: {prefix}: {e}")
             return []
 
-    def delete_keys(self, prefix: str = ''):
-        logging.debug(f"Deleting keys by prefix: {prefix}")
+    def delete_keys(self, prefix: str = '', secondary_key: str = 'default'):
+        logging.debug(f"Deleting keys by prefix: {prefix}, secondary_key: {secondary_key}")
         try:
-            keys_to_delete = self.get_keys(prefix)
-            for key in keys_to_delete:
-                path = f'{self.storage_path}/{self._keys_index[key]}'
+            keys_to_delete = self.get_keys(prefix, secondary_key)
+            for (key, secondary_key) in keys_to_delete:
+                path = f'{self.storage_path}/{self._keys_index[secondary_key][key]}'
                 self._delete(path)
-                self._keys_index.pop(key)
+                self._keys_index[secondary_key].pop(key)
                 logging.debug(f"Deleted key: {key}")
-            new_keys = '\n'.join([json.dumps([key, value]) for key, value in self._keys_index.items()])
-            self._write(f'{self.storage_path}/{KEYS_INDEX_KEY}', new_keys)
+            new_keys = [json.dumps([key, value]) for key, value in self._keys_index[secondary_key].items()]
+            if len(new_keys) == 0:
+                self._delete(f'{self.storage_path}/{KEYS_INDEX_KEY_PREFIX}{secondary_key}')
+            else:
+                self._write(f'{self.storage_path}/{KEYS_INDEX_KEY_PREFIX}{secondary_key}', '\n'.join(new_keys))
         except Exception as e:
             logging.error(f"Error deleting keys by prefix: {prefix}: {e}")
 
-    def _get_internal_key(self, key: str) -> str:
-        internal_key = self._keys_index.get(key)
+    def _get_internal_key(self, key: str, secondary_key: str = 'default') -> str:
+        internal_key = self._keys_index.get(secondary_key, {}).get(key)
         if internal_key is None:
-            logging.debug(f"Generating internal key for key: {key}")
+            logging.debug(f"Generating internal key for key: {key}, secondary_key: {secondary_key}")
+            if secondary_key not in self._keys_index:
+                self._keys_index[secondary_key] = {}
             internal_key = str(uuid.uuid4())
-            self._keys_index[key] = internal_key
-            self._append(f'{self.storage_path}/{KEYS_INDEX_KEY}',
+            self._keys_index[secondary_key][key] = internal_key
+            self._append(f'{self.storage_path}/{KEYS_INDEX_KEY_PREFIX}{secondary_key}',
                          json.dumps([key, internal_key]))
         return internal_key
 
     def _init_state(self):
-        keys_index = [
-            json.loads(entry)
-            for entry in
-            self._read(f'{self.storage_path}/{KEYS_INDEX_KEY}').splitlines()]
-        for entry in keys_index:
-            self._keys_index[entry[0]] = entry[1]
+        for file_name in [file.name for file in os.scandir(self.storage_path)
+                          if file.is_file() and file.name.startswith(KEYS_INDEX_KEY_PREFIX)]:
+            secondary_key = file_name.removeprefix(f'{KEYS_INDEX_KEY_PREFIX}')
+            self._keys_index[secondary_key] = {}
+            for entry in self._read(f'{self.storage_path}/{file_name}').splitlines():
+                [key, value] = json.loads(entry)
+                self._keys_index[secondary_key][key] = value
         logging.debug(
             f"Initialized PersistenceManager with state: {self._keys_index}")

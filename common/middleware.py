@@ -209,9 +209,9 @@ class Middleware:
     def init_state(self):
         if self.persistence_manager:
             keys = self.persistence_manager.get_keys(PROCESSED_KEY)
-            for key in keys:
+            for (key, secondary_key) in keys:
                 client_id = int(key.split('_', maxsplit=1)[1])
-                processed_ids = self.persistence_manager.get(key).splitlines()
+                processed_ids = self.persistence_manager.get(key, secondary_key).splitlines()
                 self.state[client_id] = set(processed_ids)
             logging.debug(f"Initialized state with {self.state}")
         else:

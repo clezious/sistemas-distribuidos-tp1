@@ -75,7 +75,7 @@ class ReviewStatsService:
             logging.info("Sent top book to queue: %s", book_title)
 
         self.book_reviews[client_id] = {}
-        self.persistence_manager.delete_keys(f"{REVIEW_STATS_KEY_PREFIX}{client_id}_")
+        self.persistence_manager.delete_keys(f"{REVIEW_STATS_KEY_PREFIX}{client_id}_", secondary_key=str(client_id))
         logging.info("Reset state for client: %s", client_id)
 
     def _handle_eof(self, eof_packet: EOFPacket):
@@ -118,7 +118,8 @@ class ReviewStatsService:
         key = f'{REVIEW_STATS_KEY_PREFIX}{client_id}_{review.book_title}'
         self.persistence_manager.put(
             key,
-            json.dumps(self.book_reviews[client_id][review.book_title])
+            json.dumps(self.book_reviews[client_id][review.book_title]),
+            secondary_key=str(client_id)
         )
         logging.debug("Received and saved review for: %s", review.book_title)
 
@@ -133,10 +134,10 @@ class ReviewStatsService:
 
     def _init_state(self):
         self.book_reviews = {}
-        for key in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
+        for (key, secondary_key) in self.persistence_manager.get_keys(REVIEW_STATS_KEY_PREFIX):
             [client_id, book_title] = key.removeprefix(REVIEW_STATS_KEY_PREFIX).split('_', maxsplit=1)
             client_id = int(client_id)
-            stats = json.loads(self.persistence_manager.get(key))
+            stats = json.loads(self.persistence_manager.get(key, secondary_key))
             if client_id not in self.book_reviews:
                 self.book_reviews[client_id] = {}
             self.book_reviews[client_id][book_title] = stats

@@ -68,9 +68,9 @@ class ReviewMeanAggregator:
                                          json.dumps([book_stats.encode() for book_stats in self.books_stats[client_id]]))
 
     def _init_state(self):
-        for key in self.persistence_manager.get_keys(prefix=BOOK_STATS_KEY):
+        for (key, secondary_key) in self.persistence_manager.get_keys(prefix=BOOK_STATS_KEY):
             client_id = int(key.removeprefix(f"{BOOK_STATS_KEY}_"))
-            state = json.loads(self.persistence_manager.get(key) or '[]')
+            state = json.loads(self.persistence_manager.get(key, secondary_key) or '[]')
             self.books_stats[client_id] = [PacketDecoder.decode(book_stats) for book_stats in state]
         logging.info("Initialized review mean aggregator with state: ")
         for client_id, client_book_stats in self.books_stats.items():
