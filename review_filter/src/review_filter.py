@@ -7,7 +7,6 @@ from common.review import Review
 from common.review_and_author import ReviewAndAuthor
 from common.persistence_manager import PersistenceManager
 import json
-import threading
 
 BOOKS_KEY = 'books'
 EOFS_KEY = 'eofs'
@@ -164,9 +163,9 @@ class ReviewFilter:
 
     def _init_state(self):
         # Load books
-        for key in self.persistence_manager.get_keys(BOOKS_KEY):
+        for (key, secondary_key) in self.persistence_manager.get_keys(BOOKS_KEY):
             client_id = int(key.removeprefix(f"{BOOKS_KEY}_"))
-            books = self.persistence_manager.get(key).splitlines()
+            books = self.persistence_manager.get(key, secondary_key).splitlines()
             self.books[client_id] = {}
             for book in books:
                 book = json.loads(book)

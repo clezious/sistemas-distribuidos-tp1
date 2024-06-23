@@ -84,10 +84,10 @@ class SentimentAggregator:
         logging.debug("Received book stats: %s", book_stats)
 
     def _init_state(self):
-        for key in self.persistence_manager.get_keys(BOOK_STATS_PREFIX):
+        for (key, secondary_key) in self.persistence_manager.get_keys(BOOK_STATS_PREFIX):
             [client_id, book_title] = key.removeprefix(BOOK_STATS_PREFIX).split('_', maxsplit=1)
             client_id = int(client_id)
-            book_stats = json.loads(self.persistence_manager.get(key))
+            book_stats = json.loads(self.persistence_manager.get(key, secondary_key))
             if client_id not in self.books_stats:
                 self.books_stats[client_id] = {}
             self.books_stats[client_id][book_title] = book_stats
