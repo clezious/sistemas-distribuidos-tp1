@@ -36,7 +36,7 @@ class ReviewMeanAggregator:
 
     def _handle_eof(self, eof_packet: EOFPacket):
         client_id = eof_packet.client_id
-        for book_stats in self.books_stats[client_id]:
+        for book_stats in self.books_stats.get(client_id, []):
             self.middleware.send(book_stats.encode())
         self.middleware.send(EOFPacket(
             eof_packet.client_id,
