@@ -63,9 +63,10 @@ class Docktor:
             time.sleep(self.sleep_interval)
 
     def should_healthcheck(self, service_name: str):
-        if service_name in self.excluded_containers:
-            return False
-        elif self.cluster_size == 1:
+        for excluded in self.excluded_containers:
+            if service_name.startswith(excluded):
+                return False
+        if self.cluster_size == 1:
             return True
         elif service_name.startswith("docktor"):
             docktor_id = int(service_name.split("_")[1])
