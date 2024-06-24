@@ -89,7 +89,9 @@ class OutputBoundary():
                     if current_time - last_access > QUEUE_TIMEOUT]
                 for client_id in ids_to_delete:
                     logging.info(
-                        "Deleting inactive queue for client %s", client_id)
+                        "[CLEANER] Deleting inactive queue for client %s",
+                        client_id)
+                    self.queues[client_id].put((None, None))
                     self.queues.pop(client_id, None)
                     self.access_times.pop(client_id, None)
 
@@ -121,8 +123,8 @@ class OutputBoundary():
 
     def _handle_query_eof(self, query: int):
         def handle_eof(eof_packet: Packet):
-            logging.info("Query %s finished", query)
             client_id = eof_packet.client_id
+            logging.info("[CLIENT %s] Query %s finished", client_id, query)
             with self.lock:
                 if client_id not in self.queues:
                     self.queues[client_id] = queue.Queue(
@@ -174,7 +176,8 @@ class OutputBoundary():
                 self.access_times.pop(client_id, None)
                 self.client_sockets.add(client_socket)
         except BrokenPipeError:
-            logging.error("Connection closed by client")
+            logging.error(
+                "[CLIENT %s] Connection closed by client", client_id)
             return
 
         with client_socket:
@@ -182,15 +185,22 @@ class OutputBoundary():
 
             while not all(eofs.values()):
                 query, packet = results_queue.get(block=True)
+                if query is None and packet is None:
+                    logging.info(
+                        "[CLIENT %s] Cleaner deleted queue", client_id)
+                    break
+
                 if packet.packet_type == PacketType.EOF:
                     eofs[query] = True
                     continue
 
                 try:
                     client_socket.sendall(packet.encode())
-                    logging.debug("Sent result: %s", packet)
+                    logging.debug("[CLIENT %s] Sent result: %s",
+                                  client_id, packet)
                 except BrokenPipeError:
-                    logging.error("Connection closed by client")
+                    logging.error(
+                        "[CLIENT %s] Connection closed by client", client_id)
                     break
 
         with self.lock:
@@ -198,4 +208,4 @@ class OutputBoundary():
             self.connected_clients.remove(client_id)
             self.access_times.pop(client_id, None)
             self.client_sockets.remove(client_socket)
-        logging.info("Client connection with %s closed", client_id)
+        logging.info("[CLIENT %s] connection closed", client_id)
