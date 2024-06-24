@@ -36,14 +36,16 @@ class ReviewMeanAggregator:
 
     def _handle_eof(self, eof_packet: EOFPacket):
         client_id = eof_packet.client_id
-        for book_stats in self.books_stats[client_id]:
+        for book_stats in self.books_stats.get(client_id, {}):
             self.middleware.send(book_stats.encode())
         self.middleware.send(EOFPacket(
             eof_packet.client_id,
             eof_packet.packet_id
         ).encode())
-        self.persistence_manager.delete_keys(f"{BOOK_STATS_KEY}_{client_id}")
-        self.books_stats.pop(eof_packet.client_id)
+        if client_id in self.books_stats:
+            self.persistence_manager.delete_keys(
+                f"{BOOK_STATS_KEY}_{client_id}")
+            self.books_stats.pop(client_id)
 
     def _save_stats(self, book_stats: BookStats):
         client_id = book_stats.client_id
@@ -51,7 +53,9 @@ class ReviewMeanAggregator:
             self.books_stats[client_id] = []
         # Only save the new packet if it is not already in the list.
         # If it is, it means that the packet was already processed but not acknowledged.
-        if book_stats.packet_id not in [stats.packet_id for stats in self.books_stats[client_id]]:
+        if book_stats.packet_id not in [stats.packet_id
+                                        for stats in self.books_stats
+                                        [client_id]]:
             # If the list is not full, add the new packet
             if len(self.books_stats[client_id]) < MAX_BOOKS:
                 self.books_stats[client_id].append(book_stats)
@@ -64,14 +68,19 @@ class ReviewMeanAggregator:
 
             # Sort the list after adding the new packet, then persist the state
             self.books_stats[client_id].sort(reverse=True)
-            self.persistence_manager.put(f"{BOOK_STATS_KEY}_{client_id}",
-                                         json.dumps([book_stats.encode() for book_stats in self.books_stats[client_id]]))
+            self.persistence_manager.put(
+                f"{BOOK_STATS_KEY}_{client_id}", json.dumps(
+                    [book_stats.encode()
+                     for book_stats in self.books_stats[client_id]]))
 
     def _init_state(self):
         for (key, secondary_key) in self.persistence_manager.get_keys(prefix=BOOK_STATS_KEY):
             client_id = int(key.removeprefix(f"{BOOK_STATS_KEY}_"))
-            state = json.loads(self.persistence_manager.get(key, secondary_key) or '[]')
-            self.books_stats[client_id] = [PacketDecoder.decode(book_stats) for book_stats in state]
+            state = json.loads(self.persistence_manager.get(
+                key, secondary_key) or '[]')
+            self.books_stats[client_id] = [
+                PacketDecoder.decode(book_stats) for book_stats in state]
         logging.info("Initialized review mean aggregator with state: ")
         for client_id, client_book_stats in self.books_stats.items():
-            logging.info(f"client_id: {client_id}, book_stats: {[book_stats.encode() for book_stats in client_book_stats]}")
+            logging.info(
+                f"client_id: {client_id}, book_stats: {[book_stats.encode() for book_stats in client_book_stats]}")
