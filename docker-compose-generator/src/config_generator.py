@@ -278,7 +278,7 @@ class ConfigGenerator:
         instances = self.config_params["client"]
         for instance_id in range(instances):
             self._generate_service(
-                f"client-{instance_id}",
+                f"client_{instance_id}",
                 "client:latest",
                 ["BOOK_BOUNDARY_PORT=12345",
                  "BOOK_BOUNDARY_IP=book_boundary",
