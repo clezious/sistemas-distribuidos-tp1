@@ -26,6 +26,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [review_mean_aggregator.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     review_mean_aggregator.start()
+    logging.info("Review mean aggregator stopped")
 
 
 if __name__ == '__main__':
