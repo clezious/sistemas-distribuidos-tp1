@@ -11,7 +11,7 @@ import json
 
 BOOKS_KEY = 'books'
 EOFS_KEY = 'eofs'
-CLEANUP_TIMEOUT = 60   # 20 minutes
+CLEANUP_TIMEOUT = 60 * 20  # 20 minutes
 
 
 class ReviewFilter:
