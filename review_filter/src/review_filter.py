@@ -45,12 +45,13 @@ class ReviewFilter:
         self.cleaner = threading.Thread(target=self._cleaner)
         self.should_stop = False
         self.lock = threading.Lock()
+        self.condition = threading.Condition()
 
     def start(self):
         self.books_receiver.start()
         self.reviews_receiver.start()
         self.cleaner.start()
-        
+
         if self.books_receiver:
             self.books_receiver.join()
             self.books_receiver = None
@@ -58,15 +59,17 @@ class ReviewFilter:
         if self.reviews_receiver:
             self.reviews_receiver.join()
             self.reviews_receiver = None
-        
+
         if self.cleaner:
             self.cleaner.join()
             self.cleaner = None
-        
 
     def shutdown(self):
         logging.info("Graceful shutdown: in progress")
         self.should_stop = True
+
+        with self.condition:
+            self.condition.notify_all()
 
         if self.books_middleware:
             self.books_middleware.shutdown()
@@ -93,7 +96,8 @@ class ReviewFilter:
                     self._reset_filter(client_id)
                     # TODO: Should it send an EOF to the next node?
 
-            time.sleep(CLEANUP_TIMEOUT // 10)
+            self.condition.wait(CLEANUP_TIMEOUT // 10)
+        logging.info("Cleaner thread stopped")
 
     def _books_receiver(self):
         logging.info("Initializing Books Middleware")
