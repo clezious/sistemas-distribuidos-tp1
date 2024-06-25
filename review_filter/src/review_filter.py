@@ -11,6 +11,7 @@ import json
 
 BOOKS_KEY = 'books'
 EOFS_KEY = 'eofs'
+REQUEUE_EOF_KEY = 'should_requeue_eof'
 CLEANUP_TIMEOUT = 60 * 20  # 20 minutes
 
 
@@ -30,7 +31,9 @@ class ReviewFilter:
         self.output_exchanges = output_exchanges
         self.books: dict[int, dict[str, str]] = {}
         self.eofs: set[int] = set()
+        self.should_requeue_eof: set[int] = set()
         self.last_packet_timestamp: dict[int, float] = {}
+
         self.persistence_manager = PersistenceManager(
             f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
         self._init_state()
@@ -136,8 +139,21 @@ class ReviewFilter:
         self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
         self.eofs.remove(client_id)
         self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
+
+        if client_id in self.should_requeue_eof:
+            self.__remove_should_requeue_eof(client_id)
+
         self.last_packet_timestamp.pop(client_id, None)
+
         logging.info("Filter reset for client id %s", client_id)
+
+    def __add_should_requeue_eof(self, client_id: int):
+        self.should_requeue_eof.add(client_id)
+        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
+
+    def __remove_should_requeue_eof(self, client_id: int):
+        self.should_requeue_eof.remove(client_id)
+        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
 
     def handle_books_eof(self, eof_packet: EOFPacket):
         logging.debug(f" [x] Received Books EOF: {eof_packet}")
@@ -156,9 +172,12 @@ class ReviewFilter:
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
-        if eof_packet.client_id not in self.eofs:
-            logging.warning("Received reviews EOF before books EOF - requeuing")
+        if eof_packet.client_id not in self.eofs or eof_packet.client_id in self.should_requeue_eof:
+            logging.warning("Received reviews EOF but have to requeue it - requeuing")
+            if eof_packet.client_id in self.should_requeue_eof:
+                self.__remove_should_requeue_eof(eof_packet.client_id)
             return CallbackAction.REQUEUE
+
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             with self.lock:
@@ -179,6 +198,8 @@ class ReviewFilter:
             # TODO: What happens if the review is requeued AFTER the EOF?
             # TODO: If the review is requeued but the EOF is already queued,
             # the review will be lost -> Eofs should be requeued if this happens
+            if review.client_id not in self.should_requeue_eof:
+                self.__add_should_requeue_eof(review.client_id)
             return CallbackAction.REQUEUE
 
         with self.lock:
@@ -210,11 +231,17 @@ class ReviewFilter:
             for book in books:
                 book = json.loads(book)
                 self.books[client_id][book[0]] = book[1]
+
         # Load eofs
         self.eofs = set(json.loads(
             self.persistence_manager.get(EOFS_KEY) or '[]'))
 
+        # Initialize last packet timestamps with current time
         for client_id in self.eofs:
             self.last_packet_timestamp[client_id] = time.time()
 
-        logging.info(f"Initialized state with {self.books}, eofs: {self.eofs}")
+        # Load should_requeue_eof
+        self.should_requeue_eof = set(json.loads(self.persistence_manager.get(REQUEUE_EOF_KEY) or '[]'))
+
+        logging.info(
+            f"Initialized state with {self.books}, eofs: {self.eofs}, should_requeue_eof: {self.should_requeue_eof}")
