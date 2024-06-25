@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 import json
+import logging
 import os
 from src.input_boundary import InputBoundary
 import signal
@@ -50,6 +51,7 @@ def main():
                              config_params["output_exchange"], boundary_type)
     signal.signal(signal.SIGTERM, lambda signum, frame: boundary.shutdown())
     boundary.run()
+    logging.info("Server stopped")
 
 
 if __name__ == "__main__":

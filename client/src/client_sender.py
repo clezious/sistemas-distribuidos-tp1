@@ -40,7 +40,11 @@ class ClientSender():
         with self.socket:
             with open(self.file_path, encoding="utf-8") as csvfile:
                 csvfile.readline()  # Skip header
-                self.send_file(csvfile)
+                try:
+                    self.send_file(csvfile)
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    logging.info("Connection closed")
+                    return CLIENT_ID_GRACEFUL_SHUTDOWN
 
         return self.client_id
 
@@ -65,9 +69,6 @@ class ClientSender():
 
     def send_file(self, file: TextIOWrapper):
         while line := file.readline():
-            try:
-                self.__send_line(line.strip())
-                logging.debug("Sent line: %s", line.strip())
-            except (BrokenPipeError, ConnectionResetError, OSError):
-                logging.info("Connection closed")
-                break
+
+            self.__send_line(line.strip())
+            logging.debug("Sent line: %s", line.strip())

@@ -32,22 +32,24 @@ class InputBoundary:
         self.should_stop = False
         self.output_exchange = output_exchange
         self.threads = {}
+        self.client_sockets = set()
         self.packet_queue = Queue(maxsize=QUEUE_SIZE)
-        self.middleware_sender_process = None
+        self.middleware_sender_thread = None
         self.middleware = None
         self.client_id = 0
         logging.info(
             "Listening for connections and redirecting to %s", output_exchange)
 
     def run(self):
-        self.middleware_sender_process = threading.Thread(
+        self.middleware_sender_thread = threading.Thread(
             target=self.__middleware_sender)
-        self.middleware_sender_process.start()
+        self.middleware_sender_thread.start()
         with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_CONNECTIONS) as executor:
             while self.should_stop is False:
                 try:
                     client_id = self.__next_client_id()
                     client_socket, address = self.socket.accept()
+                    self.client_sockets.add(client_socket)
                     logging.info(
                         "Connection from %s - Assigning client id: %s", address,
                         client_id)
@@ -58,7 +60,7 @@ class InputBoundary:
 
                     self.threads[client_id] = thread
                 except OSError:
-                    logging.error("Server socket closed")
+                    logging.info("Server socket closed")
                     continue
 
     def __next_client_id(self):
@@ -75,10 +77,13 @@ class InputBoundary:
         while self.should_stop is False:
             try:
                 packet = self.packet_queue.get(block=True)
+                if packet is None:
+                    break
                 self.middleware.send(packet.encode())
             except OSError:
                 logging.error("Middleware closed")
                 break
+        logging.info("Middleware sender stopped")
 
     def __handle_client_connection(
             self, client_socket: socket.socket, client_id: int):
@@ -120,16 +125,40 @@ class InputBoundary:
                     break
 
         self.threads.pop(client_id, None)
+        self.client_sockets.remove(client_socket)
+
+    def __empty_queue(self):
+        with self.packet_queue.mutex:
+            self.packet_queue.queue.clear()
+            self.packet_queue.not_full.notify_all()
 
     def shutdown(self):
         logging.info("Graceful shutdown")
         self.should_stop = True
         self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
+
         if self.middleware:
             self.middleware.shutdown()
-            self.middleware = None
-        for thread in self.threads.values():
+
+        client_sockets = list(self.client_sockets)
+        for client_socket in client_sockets:
+            logging.info("Closing client socket %s", client_socket)
+            client_socket.shutdown(socket.SHUT_RDWR)
+            client_socket.close()
+
+        if self.packet_queue:
+            self.__empty_queue()
+            logging.info("Cleared packet queue %s", self.packet_queue.qsize())
+            self.packet_queue.put(None)
+
+        logging.info("Waiting for threads to finish")
+        threads = list(self.threads.values())
+        for thread in threads:
             thread.result()
-        if self.middleware_sender_process:
-            self.middleware_sender_process.join()
+
+        logging.info("Waiting for middleware sender to finish")
+        if self.middleware_sender_thread:
+            self.middleware_sender_thread.join()
+
+        self.middleware = None
