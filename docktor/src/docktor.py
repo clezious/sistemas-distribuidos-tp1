@@ -39,6 +39,9 @@ class Docktor:
 
     def __check_containers(self):
         for container in self.client.containers.list(all=True, filters=self.filters):
+            if self.should_stop:
+                break
+
             network_name = container.name.split("-")[1]
             if self.should_healthcheck(network_name):
                 dice_throw = random.randint(0, 100)
