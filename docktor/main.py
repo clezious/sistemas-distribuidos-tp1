@@ -15,7 +15,6 @@ def main():
     excluded_containers = json.loads(os.getenv("EXCLUDED_CONTAINERS")) or []
     instance_id = json.loads(os.getenv("INSTANCE_ID") or '0')
     cluster_size = json.loads(os.getenv("CLUSTER_SIZE") or '0')
-    kill_probability_percentage: int = json.loads(os.getenv("KILL_PROBABILITY_PERCENTAGE") or '1')
     sleep_interval = json.loads(os.getenv("SLEEP_INTERVAL") or '0.07')
     healthcheck_port = json.loads(os.getenv("HEALTHCHECK_PORT") or '8888')
 
@@ -27,7 +26,6 @@ def main():
                       cluster_size=cluster_size,
                       excluded_containers=excluded_containers,
                       project_name=project_name,
-                      kill_probability_percentage=kill_probability_percentage,
                       sleep_interval=sleep_interval,
                       healthcheck_port=healthcheck_port)
 
