@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from common.book import Book
 from common.eof_packet import EOFPacket
 from common.middleware import CallbackAction, Middleware
@@ -11,6 +12,7 @@ import json
 BOOKS_KEY = 'books'
 EOFS_KEY = 'eofs'
 REQUEUE_EOF_KEY = 'should_requeue_eof'
+CLEANUP_TIMEOUT = 60 * 20  # 20 minutes
 
 
 class ReviewFilter:
@@ -30,6 +32,8 @@ class ReviewFilter:
         self.books: dict[int, dict[str, str]] = {}
         self.eofs: set[int] = set()
         self.should_requeue_eof: set[int] = set()
+        self.last_packet_timestamp: dict[int, float] = {}
+
         self.persistence_manager = PersistenceManager(
             f'../storage/review_filter_{review_input_queue[0]}_{book_input_queue[0]}_{instance_id}')
         self._init_state()
@@ -38,13 +42,19 @@ class ReviewFilter:
         self.books_middleware = None
         self.books_receiver = threading.Thread(target=self._books_receiver)
         self.reviews_receiver = threading.Thread(target=self._reviews_receiver)
+        self.cleaner = threading.Thread(target=self._cleaner)
+        self.should_stop = False
+        self.lock = threading.Lock()
 
     def start(self):
         self.books_receiver.start()
         self.reviews_receiver.start()
+        self.cleaner.start()
 
     def shutdown(self):
         logging.info("Graceful shutdown: in progress")
+        self.should_stop = True
+
         if self.books_middleware:
             self.books_middleware.shutdown()
             self.books_middleware = None
@@ -61,7 +71,28 @@ class ReviewFilter:
             self.reviews_receiver.join()
             self.reviews_receiver = None
 
+        if self.cleaner:
+            self.cleaner.join()
+            self.cleaner = None
+
         logging.info("Graceful shutdown: done")
+
+    def _cleaner(self):
+        while not self.should_stop:
+            with self.lock:
+                ids_to_remove = [
+                    client_id for client_id,
+                    last_timestamp in self.last_packet_timestamp.items()
+                    if time.time() - last_timestamp > CLEANUP_TIMEOUT]
+
+                for client_id in ids_to_remove:
+                    logging.info(
+                        "[CLEANER] Cleaning up client id %s due to timeout",
+                        client_id)
+                    self._reset_filter(client_id)
+                    # TODO: Should it send an EOF to the next node?
+
+            time.sleep(CLEANUP_TIMEOUT // 10)
 
     def _books_receiver(self):
         logging.info("Initializing Books Middleware")
@@ -95,7 +126,9 @@ class ReviewFilter:
         if book.client_id not in self.books:
             self.books[book.client_id] = {}
         self.books[book.client_id][book.title] = book.authors
-        self.persistence_manager.append(f"{BOOKS_KEY}_{book.client_id}", json.dumps([book.title, book.authors]))
+        self.persistence_manager.append(
+            f"{BOOKS_KEY}_{book.client_id}", json.dumps(
+                [book.title, book.authors]))
         logging.debug("Received and saved book: %s", book.title)
         if len(self.books[book.client_id]) % 2000 == 0:
             logging.info("[Client %s] Stored books count: %d",
@@ -106,8 +139,12 @@ class ReviewFilter:
         self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
         self.eofs.remove(client_id)
         self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
+
         if client_id in self.should_requeue_eof:
             self.__remove_should_requeue_eof(client_id)
+
+        self.last_packet_timestamp.pop(client_id, None)
+
         logging.info("Filter reset for client id %s", client_id)
 
     def __add_should_requeue_eof(self, client_id: int):
@@ -122,6 +159,8 @@ class ReviewFilter:
         logging.debug(f" [x] Received Books EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
+            with self.lock:
+                self.last_packet_timestamp[eof_packet.client_id] = time.time()
 
         self.eofs.add(eof_packet.client_id)
         self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
@@ -141,7 +180,8 @@ class ReviewFilter:
 
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
-            self._reset_filter(eof_packet.client_id)
+            with self.lock:
+                self._reset_filter(eof_packet.client_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.reviews_middleware.send(EOFPacket(
@@ -161,6 +201,9 @@ class ReviewFilter:
             if review.client_id not in self.should_requeue_eof:
                 self.__add_should_requeue_eof(review.client_id)
             return CallbackAction.REQUEUE
+
+        with self.lock:
+            self.last_packet_timestamp[review.client_id] = time.time()
 
         if review.book_title not in self.books.get(review.client_id, {}):
             return CallbackAction.ACK
@@ -182,14 +225,20 @@ class ReviewFilter:
         # Load books
         for (key, secondary_key) in self.persistence_manager.get_keys(BOOKS_KEY):
             client_id = int(key.removeprefix(f"{BOOKS_KEY}_"))
-            books = self.persistence_manager.get(key, secondary_key).splitlines()
+            books = self.persistence_manager.get(
+                key, secondary_key).splitlines()
             self.books[client_id] = {}
             for book in books:
                 book = json.loads(book)
                 self.books[client_id][book[0]] = book[1]
 
         # Load eofs
-        self.eofs = set(json.loads(self.persistence_manager.get(EOFS_KEY) or '[]'))
+        self.eofs = set(json.loads(
+            self.persistence_manager.get(EOFS_KEY) or '[]'))
+
+        # Initialize last packet timestamps with current time
+        for client_id in self.eofs:
+            self.last_packet_timestamp[client_id] = time.time()
 
         # Load should_requeue_eof
         self.should_requeue_eof = set(json.loads(self.persistence_manager.get(REQUEUE_EOF_KEY) or '[]'))
