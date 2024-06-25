@@ -32,6 +32,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [stats_service.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     stats_service.start()
+    logging.info("Review stats service stopped")
 
 
 if __name__ == '__main__':
