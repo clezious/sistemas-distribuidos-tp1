@@ -101,7 +101,7 @@ class ReviewFilter:
     def _reset_filter(self, client_id: int):
         self.books.pop(client_id, None)
         self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
-        self.eofs.remove(client_id)
+        self.eofs.discard(client_id)
         self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
         logging.info("Filter reset for client id %s", client_id)
 

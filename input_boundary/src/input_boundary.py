@@ -125,7 +125,7 @@ class InputBoundary:
                     break
 
         self.threads.pop(client_id, None)
-        self.client_sockets.remove(client_socket)
+        self.client_sockets.discard(client_socket)
 
     def __empty_queue(self):
         with self.packet_queue.mutex:
