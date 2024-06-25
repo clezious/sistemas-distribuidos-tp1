@@ -1,6 +1,7 @@
 import difflib
 import csv
 import os
+import argparse
 
 ROUNDING_PRECISION = 5
 
@@ -45,14 +46,36 @@ def compare_files_with_rounding(file1, file2):
     print(f'Files {file1} and {file2} are identical')
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('expected_results', type=str,
+                        help='Path to the expected results folder')
+    parser.add_argument('results', type=str,
+                        help='Path to the results folder')
+    args = parser.parse_args()
+    return args.expected_results, args.results
+
+
 def main():
-    for folder in [f.path for f in os.scandir('output') if f.is_dir()]:
+    expected_results, results = parse_args()
+    results_folders = [f.path for f in os.scandir(results) if f.is_dir()]
+    if not results_folders:
+        print(f'No results found in {results}')
+        return
+
+    for folder in results_folders:
         print(f'Comparing results in {folder}')
-        compare_files(f'{folder}/query_1.csv', 'kaggle_results/query_1_kaggle.csv')
-        compare_files(f'{folder}/query_2.csv', 'kaggle_results/query_2_kaggle.csv')
-        compare_files(f'{folder}/query_3.csv', 'kaggle_results/query_3_kaggle.csv')
-        compare_files(f'{folder}/query_4.csv', 'kaggle_results/query_4_kaggle.csv')
-        compare_files_with_rounding(f'{folder}/query_5.csv', 'kaggle_results/query_5_kaggle.csv')
+        compare_files(f'{folder}/query_1.csv',
+                      f'{expected_results}/query_1.csv')
+        compare_files(f'{folder}/query_2.csv',
+                      f'{expected_results}/query_2.csv')
+        compare_files(f'{folder}/query_3.csv',
+                      f'{expected_results}/query_3.csv')
+        compare_files(f'{folder}/query_4.csv',
+                      f'{expected_results}/query_4.csv')
+        compare_files_with_rounding(
+            f'{folder}/query_5.csv', f'{expected_results}/query_5.csv')
+        print()
 
 
 if __name__ == '__main__':
