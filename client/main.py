@@ -81,7 +81,10 @@ def main():
         output_dir="../output",
         client_id=client_id
     )
-    result_client.run()
+    if not result_client.run():
+        logging.info("Received graceful shutdown signal. Exiting...")
+        return
+
     logging.info("Received all results")
     logging.info(f"Total time: {time.time() - start}")
 

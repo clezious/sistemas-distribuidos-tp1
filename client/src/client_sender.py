@@ -23,7 +23,12 @@ class ClientSender():
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
 
         logging.info("Client running")
-        self.__connect()
+        try:
+            self.__connect()
+        except ConnectionRefusedError:
+            logging.error("Connection refused")
+            return CLIENT_ID_GRACEFUL_SHUTDOWN
+
         if self.client_id is None:
             client_id_bytes = receive_exact(self.socket, CLIENT_ID_BYTES)
             self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
