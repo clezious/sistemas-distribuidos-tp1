@@ -17,24 +17,35 @@ class Killer:
     def russian_roulette(self, kill_probability: float, time_interval: float) -> bool:
         logging.info("Starting russian roulette")
         while True:
-            containers = self.docker_client.containers.list(all=True, filters=FILTERS)
-            self.alive_docktors = set([container.name for container in containers
-                                       if container.name.split("-")[1].startswith("docktor")
-                                       and container.status == 'running'])
+            self.__kill_containers(kill_probability, time_interval)
 
-            for container in containers:
-                network_name = container.name.split("-")[1]
-                if not self.should_kill(network_name):
-                    continue
+    def nuke(self):
+        logging.info("Nuking all containers except the ones in the EXCLUDED_CONTAINERS list and 1 docktor")
+        self.__kill_containers(100, 0)
+        logging.info("Nuked all containers except the ones in the EXCLUDED_CONTAINERS list and 1 docktor")
 
-                dice_throw = random.randint(0, 100)
-                logging.debug(f"Dice throw: {dice_throw} for {container.name}")
+    def __kill_containers(self, kill_probability: float, time_interval: float):
+        containers = self.docker_client.containers.list(all=True, filters=FILTERS)
+        self.alive_docktors = set([container.name for container in containers
+                                   if container.name.split("-")[1].startswith("docktor")
+                                   and container.status == 'running'])
 
-                if kill_probability > dice_throw and container.status == 'running':
-                    logging.info(f"KILLING {network_name}")
+        for container in containers:
+            network_name = container.name.split("-")[1]
+            if not self.should_kill(network_name):
+                continue
+
+            dice_throw = random.randint(0, 100)
+            logging.debug(f"Dice throw: {dice_throw} for {container.name}")
+
+            if kill_probability > dice_throw and container.status == 'running':
+                logging.info(f"KILLING {network_name}")
+                try:
                     container.kill()
+                except Exception as e:
+                    logging.error(f"Error while killing container: {e}")
 
-                sleep(time_interval)
+            sleep(time_interval)
 
     def should_kill(self, service_name: str):
         for excluded in EXCLUDED_CONTAINERS:
