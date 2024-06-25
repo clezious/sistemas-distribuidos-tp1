@@ -25,7 +25,7 @@ class Killer:
         logging.info("Nuked all containers except the ones in the EXCLUDED_CONTAINERS list and 1 docktor")
 
     def __kill_containers(self, kill_probability: float, time_interval: float):
-        containers = self.docker_client.containers.list(all=True, filters=FILTERS)
+        containers = self.docker_client.containers.list(filters=FILTERS)  # List only running containers
         self.alive_docktors = set([container.name for container in containers
                                    if container.name.split("-")[1].startswith("docktor")
                                    and container.status == 'running'])
