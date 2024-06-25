@@ -2,7 +2,6 @@ import docker
 import socket
 import logging
 import time
-import random
 
 SOCKET_TIMEOUT = 5
 
@@ -13,7 +12,6 @@ class Docktor:
                  cluster_size: int,
                  excluded_containers: list[str],
                  project_name: str,
-                 kill_probability_percentage: int = 1,
                  sleep_interval: float = 0.07,
                  healthcheck_port: int = 8888):
         self.client = docker.from_env()
@@ -29,7 +27,6 @@ class Docktor:
             "label": f"com.docker.compose.project={project_name}"
         }
         self.sleep_interval = sleep_interval
-        self.kill_probability_percentage = kill_probability_percentage
         socket.setdefaulttimeout(SOCKET_TIMEOUT)
 
     def start(self):
@@ -44,11 +41,7 @@ class Docktor:
 
             network_name = container.name.split("-")[1]
             if self.should_healthcheck(network_name):
-                dice_throw = random.randint(0, 100)
-                if self.kill_probability_percentage > dice_throw and container.status == 'running':
-                    logging.info(f"KILLING {network_name} INSTEAD OF CHECKING HEALTHCHECK")
-                    container.kill()
-                    continue
+
                 try:
                     logging.debug(f"Healthcheck for {network_name}")
                     self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
