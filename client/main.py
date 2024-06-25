@@ -2,7 +2,7 @@ from configparser import ConfigParser
 import logging
 import os
 from src.client_receiver import ClientReceiver
-from src.client_sender import ClientSender
+from src.client_sender import CLIENT_ID_GRACEFUL_SHUTDOWN, ClientSender
 from common.logs import initialize_log
 import time
 
@@ -55,6 +55,9 @@ def main():
         config_params["book_boundary_ip"],
         config_params["book_boundary_port"])
     client_id = book_client.run()
+    if client_id == CLIENT_ID_GRACEFUL_SHUTDOWN:
+        logging.info("Received graceful shutdown signal. Exiting...")
+        return
     logging.info("Sent all books")
     logging.info(f"Time taken to send books: {time.time() - start}")
 
@@ -64,7 +67,11 @@ def main():
         config_params["review_boundary_port"],
         client_id=client_id
     )
-    review_client.run()
+    shutdown_id = review_client.run()
+    if shutdown_id == CLIENT_ID_GRACEFUL_SHUTDOWN:
+        logging.info("Received graceful shutdown signal. Exiting...")
+        return
+
     logging.info("Sent all reviews")
     logging.info(f"Time taken to send reviews: {time.time() - start}")
 

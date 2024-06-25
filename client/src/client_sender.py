@@ -8,6 +8,8 @@ from common.receive_utils import receive_exact
 LENGTH_BYTES = 2
 CLIENT_ID_BYTES = 2
 
+CLIENT_ID_GRACEFUL_SHUTDOWN = -1
+
 
 class ClientSender():
     def __init__(self, file_path: str, ip: str, port: int, client_id=None):
@@ -44,7 +46,10 @@ class ClientSender():
 
     def __graceful_shutdown(self, signum, frame):
         # TODO: Implement graceful shutdown
-        raise NotImplementedError("Graceful shutdown not implemented")
+        # raise NotImplementedError("Graceful shutdown not implemented")
+        if self.socket:
+            self.socket.close()
+        self.client_id = CLIENT_ID_GRACEFUL_SHUTDOWN
 
     def __send_line(self, line: str):
         encoded_line = line.encode()
@@ -58,6 +63,6 @@ class ClientSender():
             try:
                 self.__send_line(line.strip())
                 logging.debug("Sent line: %s", line.strip())
-            except BrokenPipeError:
+            except (BrokenPipeError, ConnectionResetError, OSError):
                 logging.info("Connection closed")
                 break
