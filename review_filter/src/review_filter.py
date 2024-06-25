@@ -40,6 +40,13 @@ class ReviewFilter:
     def start(self):
         self.books_receiver.start()
         self.reviews_receiver.start()
+        if self.books_receiver:
+            self.books_receiver.join()
+            self.books_receiver = None
+
+        if self.reviews_receiver:
+            self.reviews_receiver.join()
+            self.reviews_receiver = None
 
     def shutdown(self):
         logging.info("Graceful shutdown: in progress")
@@ -50,14 +57,6 @@ class ReviewFilter:
         if self.reviews_middleware:
             self.reviews_middleware.shutdown()
             self.reviews_middleware = None
-
-        if self.books_receiver:
-            self.books_receiver.join()
-            self.books_receiver = None
-
-        if self.reviews_receiver:
-            self.reviews_receiver.join()
-            self.reviews_receiver = None
 
         logging.info("Graceful shutdown: done")
 
@@ -90,14 +89,14 @@ class ReviewFilter:
         self.reviews_middleware.start()
 
     def _add_book(self, book: Book):
-        if book.client_id not in self.books:
-            self.books[book.client_id] = {}
-        self.books[book.client_id][book.title] = book.authors
-        self.persistence_manager.append(f"{BOOKS_KEY}_{book.client_id}", json.dumps([book.title, book.authors]))
+        client_id = book.client_id
+        if client_id not in self.books:
+            self.books[client_id] = {}
+        self.books[client_id][book.title] = book.authors
+        self.persistence_manager.append(f"{BOOKS_KEY}_{client_id}", json.dumps([book.title, book.authors]))
         logging.debug("Received and saved book: %s", book.title)
-        if len(self.books[book.client_id]) % 2000 == 0:
-            logging.info("[Client %s] Stored books count: %d",
-                         book.client_id,  len(self.books))
+        if len(self.books[client_id]) % 2000 == 0:
+            logging.info("[Client %s] Stored books count: %d", client_id,  len(self.books[client_id]))
 
     def _reset_filter(self, client_id: int):
         self.books.pop(client_id, None)
