@@ -34,6 +34,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method() for method in [docktor.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     logging.info("Docktor starting")
     docktor.start()
+    logging.info("Docktor stopped")
 
 
 if __name__ == '__main__':
