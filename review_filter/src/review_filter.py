@@ -45,23 +45,12 @@ class ReviewFilter:
         self.cleaner = threading.Thread(target=self._cleaner)
         self.should_stop = False
         self.lock = threading.Lock()
+        self.condition = threading.Condition()
 
     def start(self):
         self.books_receiver.start()
         self.reviews_receiver.start()
         self.cleaner.start()
-
-    def shutdown(self):
-        logging.info("Graceful shutdown: in progress")
-        self.should_stop = True
-
-        if self.books_middleware:
-            self.books_middleware.shutdown()
-            self.books_middleware = None
-
-        if self.reviews_middleware:
-            self.reviews_middleware.shutdown()
-            self.reviews_middleware = None
 
         if self.books_receiver:
             self.books_receiver.join()
@@ -74,6 +63,21 @@ class ReviewFilter:
         if self.cleaner:
             self.cleaner.join()
             self.cleaner = None
+
+    def shutdown(self):
+        logging.info("Graceful shutdown: in progress")
+        self.should_stop = True
+
+        with self.condition:
+            self.condition.notify_all()
+
+        if self.books_middleware:
+            self.books_middleware.shutdown()
+            self.books_middleware = None
+
+        if self.reviews_middleware:
+            self.reviews_middleware.shutdown()
+            self.reviews_middleware = None
 
         logging.info("Graceful shutdown: done")
 
@@ -92,7 +96,8 @@ class ReviewFilter:
                     self._reset_filter(client_id)
                     # TODO: Should it send an EOF to the next node?
 
-            time.sleep(CLEANUP_TIMEOUT // 10)
+            self.condition.wait(CLEANUP_TIMEOUT // 10)
+        logging.info("Cleaner thread stopped")
 
     def _books_receiver(self):
         logging.info("Initializing Books Middleware")
@@ -123,21 +128,20 @@ class ReviewFilter:
         self.reviews_middleware.start()
 
     def _add_book(self, book: Book):
-        if book.client_id not in self.books:
-            self.books[book.client_id] = {}
-        self.books[book.client_id][book.title] = book.authors
-        self.persistence_manager.append(
-            f"{BOOKS_KEY}_{book.client_id}", json.dumps(
-                [book.title, book.authors]))
+        client_id = book.client_id
+        if client_id not in self.books:
+            self.books[client_id] = {}
+        self.books[client_id][book.title] = book.authors
+        self.persistence_manager.append(f"{BOOKS_KEY}_{client_id}", json.dumps([book.title, book.authors]))
+
         logging.debug("Received and saved book: %s", book.title)
-        if len(self.books[book.client_id]) % 2000 == 0:
-            logging.info("[Client %s] Stored books count: %d",
-                         book.client_id,  len(self.books))
+        if len(self.books[client_id]) % 2000 == 0:
+            logging.info("[Client %s] Stored books count: %d", client_id,  len(self.books[client_id]))
 
     def _reset_filter(self, client_id: int):
         self.books.pop(client_id, None)
         self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
-        self.eofs.remove(client_id)
+        self.eofs.discard(client_id)
         self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
 
         if client_id in self.should_requeue_eof:

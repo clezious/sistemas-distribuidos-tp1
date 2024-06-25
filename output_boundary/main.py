@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 from src.output_boundary import OutputBoundary
@@ -18,6 +19,7 @@ def main():
                                      result_queues)
     signal.signal(signal.SIGTERM, lambda signum, frame: output_boundary.shutdown())
     output_boundary.run()
+    logging.info("Output boundary stopped")
 
 
 if __name__ == "__main__":

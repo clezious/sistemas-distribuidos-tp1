@@ -8,6 +8,8 @@ from common.receive_utils import receive_exact
 LENGTH_BYTES = 2
 CLIENT_ID_BYTES = 2
 
+CLIENT_ID_GRACEFUL_SHUTDOWN = -1
+
 
 class ClientSender():
     def __init__(self, file_path: str, ip: str, port: int, client_id=None):
@@ -21,7 +23,12 @@ class ClientSender():
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
 
         logging.info("Client running")
-        self.__connect()
+        try:
+            self.__connect()
+        except ConnectionRefusedError:
+            logging.error("Connection refused")
+            return CLIENT_ID_GRACEFUL_SHUTDOWN
+
         if self.client_id is None:
             client_id_bytes = receive_exact(self.socket, CLIENT_ID_BYTES)
             self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
@@ -33,7 +40,11 @@ class ClientSender():
         with self.socket:
             with open(self.file_path, encoding="utf-8") as csvfile:
                 csvfile.readline()  # Skip header
-                self.send_file(csvfile)
+                try:
+                    self.send_file(csvfile)
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    logging.info("Connection closed")
+                    return CLIENT_ID_GRACEFUL_SHUTDOWN
 
         return self.client_id
 
@@ -44,7 +55,10 @@ class ClientSender():
 
     def __graceful_shutdown(self, signum, frame):
         # TODO: Implement graceful shutdown
-        raise NotImplementedError("Graceful shutdown not implemented")
+        # raise NotImplementedError("Graceful shutdown not implemented")
+        if self.socket:
+            self.socket.close()
+        self.client_id = CLIENT_ID_GRACEFUL_SHUTDOWN
 
     def __send_line(self, line: str):
         encoded_line = line.encode()
@@ -55,9 +69,6 @@ class ClientSender():
 
     def send_file(self, file: TextIOWrapper):
         while line := file.readline():
-            try:
-                self.__send_line(line.strip())
-                logging.debug("Sent line: %s", line.strip())
-            except BrokenPipeError:
-                logging.info("Connection closed")
-                break
+
+            self.__send_line(line.strip())
+            logging.debug("Sent line: %s", line.strip())

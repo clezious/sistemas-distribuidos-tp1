@@ -31,29 +31,35 @@ class OutputBoundary():
         self.threads = []
         self.client_sockets = set()
         self.should_stop = False
+        self.condition = threading.Condition()
 
         logging.info("Listening for connections and replying results")
 
     def shutdown(self):
         logging.info("Graceful shutdown")
+        self.should_stop = True
+        self.server_socket.close()
         self.middleware.shutdown()
+
+        with self.condition:
+            self.condition.notify_all()
+
+        logging.info("Closing client sockets")
         for client_socket in self.client_sockets:
             client_socket.close()
         self.client_sockets.clear()
 
         for queue in self.queues.values():
-            queue.queue.clear()
+            with queue.mutex:
+                queue.queue.clear()
+            queue.put((None, None))
         self.queues.clear()
 
+        logging.info("Joining threads")
         for thread in self.threads:
             thread.join()
         self.threads.clear()
-
-        self.server_socket.close()
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind(('', self.port))
-        self.server_socket.listen(self.backlog)
-        self.should_stop = False
+        logging.info("Joined all threads")
 
     def run(self):
         middleware_receiver_thread = threading.Thread(
@@ -65,8 +71,12 @@ class OutputBoundary():
         cleaner_thread.start()
 
         while not self.should_stop:
-            client_socket, address = self.server_socket.accept()
-            logging.info("Connection from %s", address)
+            try:
+                client_socket, address = self.server_socket.accept()
+                logging.info("Connection from %s", address)
+            except OSError:
+                logging.info("Server socket closed")
+                break
 
             thread = threading.Thread(
                 target=self.__handle_client_connection,
@@ -95,7 +105,8 @@ class OutputBoundary():
                     self.queues.pop(client_id, None)
                     self.access_times.pop(client_id, None)
 
-            time.sleep(QUEUE_TIMEOUT // 10)
+            self.condition.wait(QUEUE_TIMEOUT // 10)
+        logging.info("[CLEANER] Stopped")
 
     def _init_middleware(self):
         self.middleware = Middleware()
@@ -185,9 +196,9 @@ class OutputBoundary():
 
             while not all(eofs.values()):
                 query, packet = results_queue.get(block=True)
+                logging.info("Received result: %s", (query, packet))
                 if query is None and packet is None:
-                    logging.info(
-                        "[CLIENT %s] Cleaner deleted queue", client_id)
+                    logging.info("[CLIENT %s] disconnected due to shutdown or cleaner", client_id)
                     break
 
                 if packet.packet_type == PacketType.EOF:
@@ -204,8 +215,8 @@ class OutputBoundary():
                     break
 
         with self.lock:
-            self.queues.pop(client_id)
-            self.connected_clients.remove(client_id)
+            self.queues.pop(client_id, None)
+            self.connected_clients.discard(client_id)
             self.access_times.pop(client_id, None)
-            self.client_sockets.remove(client_socket)
+            self.client_sockets.discard(client_socket)
         logging.info("[CLIENT %s] connection closed", client_id)

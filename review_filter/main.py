@@ -30,6 +30,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [review_filter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     review_filter.start()
+    logging.info("Review filter stopped")
 
 
 if __name__ == '__main__':

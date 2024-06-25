@@ -25,6 +25,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [sentiment_aggregator.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     sentiment_aggregator.start()
+    logging.info("Sentiment aggregator stopped")
 
 
 if __name__ == '__main__':

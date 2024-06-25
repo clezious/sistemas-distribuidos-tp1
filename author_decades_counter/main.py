@@ -18,13 +18,16 @@ def main():
 
     healthcheck_port = json.loads(os.getenv("HEALTHCHECK_PORT") or '8888')
 
-    counter = DecadeCounter(input_queues=input_queues, output_queues=output_queues, instance_id=instance_id, cluster_size=cluster_size)
+    counter = DecadeCounter(input_queues=input_queues, output_queues=output_queues,
+                            instance_id=instance_id, cluster_size=cluster_size)
     healthcheck = HealthCheck(port=healthcheck_port)
     healthcheck_thread = threading.Thread(target=healthcheck.start, daemon=True)
     healthcheck_thread.start()
-    signal.signal(signal.SIGTERM, lambda signum, frame: [method() for method in [counter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
+    signal.signal(signal.SIGTERM, lambda signum, frame: [method() for method in [
+                  counter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     logging.info("Decade counter starting")
     counter.start()
+    logging.info("Decade counter stopped")
 
 
 if __name__ == '__main__':

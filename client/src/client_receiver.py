@@ -1,3 +1,4 @@
+import errno
 import logging
 import signal
 import socket
@@ -18,6 +19,7 @@ class ClientReceiver():
         self.results = {query: [] for query in range(1, 6)}
         self.output_dir = output_dir
         self.client_id = client_id
+        self.should_stop = False
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
@@ -27,7 +29,11 @@ class ClientReceiver():
             logging.info("Client waiting for results")
             self.__send_client_id()
             self._handle_server_connection(self.socket)
+            if self.should_stop:
+                return False
             self._output_results()
+
+        return True
 
     def __send_client_id(self):
         client_id_encoded = self.client_id.to_bytes(
@@ -53,7 +59,7 @@ class ClientReceiver():
                 writer.writerow(row)
 
     def _handle_server_connection(self, s: socket.socket):
-        while True:
+        while not self.should_stop:
             try:
                 data = receive_line(s, LENGTH_BYTES).decode().strip()
                 result_packet = ResultPacket.decode(data)
@@ -65,6 +71,12 @@ class ClientReceiver():
                 break
             except ConnectionResetError:
                 logging.info("Connection closed by server")
+                break
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    logging.info("Connection closed")
+                else:
+                    raise e
                 break
 
     def _process_result(self, result: ResultPacket):
@@ -109,4 +121,7 @@ class ClientReceiver():
 
     def __graceful_shutdown(self, signum, frame):
         # TODO: Implement graceful shutdown
-        raise NotImplementedError("Graceful shutdown not implemented")
+        self.should_stop = True
+        if self.socket:
+            self.socket.close()
+            self.socket = None

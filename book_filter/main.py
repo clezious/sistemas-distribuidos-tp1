@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 import threading
@@ -26,6 +27,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda signum, frame: [method()
                   for method in [book_filter.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     book_filter.start()
+    logging.info("Book filter stopped")
 
 
 if __name__ == "__main__":

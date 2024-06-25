@@ -96,12 +96,21 @@ class Middleware:
         self.channel.basic_publish(exchange='', routing_key=queue, body=data)
         logging.debug("Sent to queue %s: %s", queue, data)
 
-    def shutdown(self):
+    def _shutdown(self):
         self.should_stop = True
+
         if self.input_queues:
             self.stop()
+
+        if self.channel:
+            self.channel.close()
+
         self.connection.close()
         logging.info("Middleware stopped")
+
+    def shutdown(self):
+        logging.info("Stopping middleware")
+        self.connection.add_callback_threadsafe(self._shutdown)
 
     def add_input_queue(self,
                         input_queue: str,

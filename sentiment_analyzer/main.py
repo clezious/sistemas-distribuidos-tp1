@@ -30,6 +30,7 @@ def main():
                   for method in [sentiment_analyzer.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
 
     sentiment_analyzer.start()
+    logging.info("Review sentiment analyzer stopped")
 
 
 if __name__ == '__main__':

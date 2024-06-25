@@ -1,3 +1,4 @@
+import logging
 import signal
 import os
 import json
@@ -31,6 +32,7 @@ def main():
     healthcheck_thread.start()
     signal.signal(signal.SIGTERM, lambda signum, frame: [method() for method in [router.shutdown, healthcheck.shutdown, healthcheck_thread.join]])
     router.start()
+    logging.info("Router stopped")
 
 
 if __name__ == '__main__':
