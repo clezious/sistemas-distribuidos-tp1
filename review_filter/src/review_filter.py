@@ -10,6 +10,7 @@ import json
 
 BOOKS_KEY = 'books'
 EOFS_KEY = 'eofs'
+REQUEUE_EOF_KEY = 'should_requeue_eof'
 
 
 class ReviewFilter:
@@ -111,11 +112,11 @@ class ReviewFilter:
 
     def __add_should_requeue_eof(self, client_id: int):
         self.should_requeue_eof.add(client_id)
-        self.persistence_manager.put("should_requeue_eof", json.dumps(list(self.should_requeue_eof)))
+        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
 
     def __remove_should_requeue_eof(self, client_id: int):
         self.should_requeue_eof.remove(client_id)
-        self.persistence_manager.put("should_requeue_eof", json.dumps(list(self.should_requeue_eof)))
+        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
 
     def handle_books_eof(self, eof_packet: EOFPacket):
         logging.debug(f" [x] Received Books EOF: {eof_packet}")
@@ -191,7 +192,7 @@ class ReviewFilter:
         self.eofs = set(json.loads(self.persistence_manager.get(EOFS_KEY) or '[]'))
 
         # Load should_requeue_eof
-        self.should_requeue_eof = set(json.loads(self.persistence_manager.get("should_requeue_eof") or '[]'))
+        self.should_requeue_eof = set(json.loads(self.persistence_manager.get(REQUEUE_EOF_KEY) or '[]'))
 
         logging.info(
             f"Initialized state with {self.books}, eofs: {self.eofs}, should_requeue_eof: {self.should_requeue_eof}")
