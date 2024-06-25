@@ -59,6 +59,7 @@ class OutputBoundary():
         for thread in self.threads:
             thread.join()
         self.threads.clear()
+        logging.info("Joined all threads")
 
     def run(self):
         middleware_receiver_thread = threading.Thread(
@@ -105,6 +106,7 @@ class OutputBoundary():
                     self.access_times.pop(client_id, None)
 
             self.condition.wait(QUEUE_TIMEOUT // 10)
+        logging.info("[CLEANER] Stopped")
 
     def _init_middleware(self):
         self.middleware = Middleware()
@@ -218,4 +220,3 @@ class OutputBoundary():
             self.access_times.pop(client_id, None)
             self.client_sockets.discard(client_socket)
         logging.info("[CLIENT %s] connection closed", client_id)
-
