@@ -1,9 +1,7 @@
 from configparser import ConfigParser
-import logging
 import os
 from src.client import Client
 from common.logs import initialize_log
-import time
 
 
 def initialize_config():
