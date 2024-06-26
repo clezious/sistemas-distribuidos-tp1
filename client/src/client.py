@@ -107,24 +107,24 @@ class Client:
             self.books_socket.shutdown(socket.SHUT_RDWR)
             self.books_socket.close()
         except OSError as e:
-            logging.error("Error while closing books socket: %s", e)
+            logging.error("Error while closing books socket: %s - Skipping", e)
 
         try:
             self.reviews_socket.shutdown(socket.SHUT_RDWR)
             self.reviews_socket.close()
         except OSError as e:
-            logging.error("Error while closing reviews socket: %s", e)
+            logging.error("Error while closing reviews socket: %s - Skipping", e)
 
         try:
             self.results_socket.shutdown(socket.SHUT_RDWR)
             self.results_socket.close()
         except OSError as e:
-            logging.error("Error while closing results socket: %s", e)
+            logging.error("Error while closing results socket: %s - Skipping", e)
 
         logging.info("Sockets closed")
         with self.condition:
             self.condition.notify_all()
-        logging.info("Client id set to -1 and notified all threads")
+        logging.info("Notified all threads")
 
     def run(self):
         start = time.time()
@@ -205,6 +205,7 @@ class Client:
             self.shutdown()
             return
         self.__output_results()
+        logging.info("Finished receiving results, shutting down")
         self.shutdown()
 
     def __receive_results(self):
@@ -218,15 +219,6 @@ class Client:
             except EOFError:
                 logging.info("EOF reached")
                 break
-            except ConnectionResetError:
-                logging.info("Connection closed by server")
-                break
-            except OSError as e:
-                if e.errno == errno.EBADF:
-                    logging.info("Connection closed")
-                    break
-                else:
-                    raise e
 
     def __output_results(self):
         for query in self.results.keys():
