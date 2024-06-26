@@ -105,8 +105,8 @@ class OutputBoundary():
                     self.queues[client_id].put((None, None))
                     self.queues.pop(client_id, None)
                     self.access_times.pop(client_id, None)
-
-            self.condition.wait(QUEUE_TIMEOUT // 10)
+            with self.condition:
+                self.condition.wait(QUEUE_TIMEOUT // 10)
         logging.info("[CLEANER] Stopped")
 
     def _init_middleware(self):
