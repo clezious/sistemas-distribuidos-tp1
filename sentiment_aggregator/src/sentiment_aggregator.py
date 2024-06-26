@@ -35,26 +35,23 @@ class SentimentAggregator:
 
     def _calculate_percentile(self, eof_packet: EOFPacket):
         client_id = eof_packet.client_id
-        if client_id not in self.books_stats:
-            logging.warning("No data received for client %d", client_id)
-            return
+        if client_id in self.books_stats:
+            stats: list[BookStats] = []
+            for title, book_stats in self.books_stats[client_id].items():
+                average_score = book_stats["total_score"] / book_stats["total_reviews"]
+                stats.append(
+                    BookStats(
+                        title, average_score, client_id,
+                        book_stats["packet_id"]))
+            stats.sort(key=lambda x: x.score)
+            percentile_90_score = stats[int(len(stats) * (PERCENTILE / 100))].score
+            logging.info("90th percentile score: %f", percentile_90_score)
+            percentile = [book_stats for book_stats in stats
+                          if book_stats.score >= percentile_90_score]
 
-        stats: list[BookStats] = []
-        for title, book_stats in self.books_stats[client_id].items():
-            average_score = book_stats["total_score"] / book_stats["total_reviews"]
-            stats.append(
-                BookStats(
-                    title, average_score, client_id,
-                    book_stats["packet_id"]))
-        stats.sort(key=lambda x: x.score)
-        percentile_90_score = stats[int(len(stats) * (PERCENTILE / 100))].score
-        logging.info("90th percentile score: %f", percentile_90_score)
-        percentile = [book_stats for book_stats in stats
-                      if book_stats.score >= percentile_90_score]
-
-        for book_stats in percentile:
-            self.middleware.send(book_stats.encode())
-            logging.info("Sent book stats: %s", book_stats)
+            for book_stats in percentile:
+                self.middleware.send(book_stats.encode())
+                logging.info("Sent book stats: %s", book_stats)
 
         self.middleware.send(EOFPacket(
             client_id,
