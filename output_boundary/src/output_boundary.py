@@ -209,9 +209,8 @@ class OutputBoundary():
                     client_socket.sendall(packet.encode())
                     logging.debug("[CLIENT %s] Sent result: %s",
                                   client_id, packet)
-                except BrokenPipeError:
-                    logging.error(
-                        "[CLIENT %s] Connection closed by client", client_id)
+                except (BrokenPipeError, ConnectionResetError):
+                    logging.error("[CLIENT %s] Connection closed by client", client_id)
                     break
 
         with self.lock:
