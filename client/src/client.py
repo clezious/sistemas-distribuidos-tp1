@@ -2,10 +2,12 @@ import csv
 import errno
 from io import TextIOWrapper
 import logging
+import os
 import signal
 import socket
 import threading
 import time
+from typing import Iterable
 
 from common.receive_utils import receive_exact, receive_line
 from common.result_packet import ResultPacket
@@ -85,9 +87,16 @@ class Client:
         self.results_thread = None
         self.client_id = None
         self.client_id_condition = threading.Condition()
-        self.results = {query: [] for query in range(1, 6)}
         self.should_stop = False
+        self.__clear_output_dir()
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
+
+    def __clear_output_dir(self):
+        if os.path.exists(OUTPUT_DIR):
+            for file in os.listdir(OUTPUT_DIR):
+                os.remove(os.path.join(OUTPUT_DIR, file))
+        else:
+            os.makedirs(OUTPUT_DIR)
 
     def __graceful_shutdown(self, _signum, _frame):
         logging.info("Graceful shutdown starting")
@@ -165,7 +174,6 @@ class Client:
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
             logging.error("Connection closed: %s", e)
             return
-        self.__output_results()
 
     def __receive_results(self):
         while not self.should_stop:
@@ -173,7 +181,7 @@ class Client:
                 data = receive_line(self.results_socket, LENGTH_BYTES).decode().strip()
                 result_packet = ResultPacket.decode(data)
                 result_data = process_result(result_packet)
-                self.results[result_packet.query].append(result_data)
+                self.__write_result(result_packet.query, result_data)
                 logging.info("Saved result: %s", result_packet)
             except EOFError:
                 logging.info("EOF reached")
@@ -188,23 +196,13 @@ class Client:
                 else:
                     raise e
 
-    def __output_results(self):
-        for query in self.results.keys():
-            file_name = f"{OUTPUT_DIR}/query_{query}.csv"
-            self.results[query] = sorted(
-                self.results[query], key=lambda x: x[0])
-            self.__save_query_to_csv_file(query, file_name)
-            print(
-                f"Query {query} finished. Saved to {file_name}. Results count: {len(self.results[query])}.")
-
-    def __save_query_to_csv_file(self, query: int, file_path: str):
-        with open(file_path, 'w', newline='') as csvfile:
+    def __write_result(self, query: int, row: Iterable[any]):
+        with open(f"{OUTPUT_DIR}/query_{query}.csv", 'a', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',',
                                 quotechar='"',
                                 quoting=csv.QUOTE_MINIMAL,
                                 lineterminator='\n')
-            for row in self.results[query]:
-                writer.writerow(row)
+            writer.writerow(row)
 
     def __send_client_id(self, socket: socket.socket):
         with self.client_id_condition:
