@@ -1,8 +1,7 @@
 from configparser import ConfigParser
 import logging
 import os
-from src.client_receiver import ClientReceiver
-from src.client_sender import CLIENT_ID_GRACEFUL_SHUTDOWN, ClientSender
+from src.client import Client
 from common.logs import initialize_log
 import time
 
@@ -46,47 +45,18 @@ def initialize_config():
 
 
 def main():
-    start = time.time()
     config_params = initialize_config()
     initialize_log(config_params["logging_level"])
 
-    book_client = ClientSender(
-        "../datasets/books_data.csv",
-        config_params["book_boundary_ip"],
-        config_params["book_boundary_port"])
-    client_id = book_client.run()
-    if client_id == CLIENT_ID_GRACEFUL_SHUTDOWN:
-        logging.info("Received graceful shutdown signal. Exiting...")
-        return
-    logging.info("Sent all books")
-    logging.info(f"Time taken to send books: {time.time() - start}")
-
-    review_client = ClientSender(
-        "../datasets/Books_rating.csv",
-        config_params["review_boundary_ip"],
-        config_params["review_boundary_port"],
-        client_id=client_id
-    )
-    shutdown_id = review_client.run()
-    if shutdown_id == CLIENT_ID_GRACEFUL_SHUTDOWN:
-        logging.info("Received graceful shutdown signal. Exiting...")
-        return
-
-    logging.info("Sent all reviews")
-    logging.info(f"Time taken to send reviews: {time.time() - start}")
-
-    result_client = ClientReceiver(
-        config_params["result_boundary_ip"],
-        config_params["result_boundary_port"],
-        output_dir="../output",
-        client_id=client_id
-    )
-    if not result_client.run():
-        logging.info("Received graceful shutdown signal. Exiting...")
-        return
-
-    logging.info("Received all results")
-    logging.info(f"Total time: {time.time() - start}")
+    client = Client("../datasets/books_data.csv",
+                    (config_params["book_boundary_ip"],
+                     config_params["book_boundary_port"]),
+                    "../datasets/Books_rating.csv",
+                    (config_params["review_boundary_ip"],
+                     config_params["review_boundary_port"]),
+                    (config_params["result_boundary_ip"],
+                     config_params["result_boundary_port"]))
+    client.run()
 
 
 if __name__ == "__main__":
