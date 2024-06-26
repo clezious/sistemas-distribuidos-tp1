@@ -177,6 +177,7 @@ class OutputBoundary():
 
     def __handle_client_connection(
             self, client_socket: socket.socket):
+        client_id = 'unknown'
         try:
             client_id = self.__receive_client_id(client_socket)
             results_queue = self.queues.get(
