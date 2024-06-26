@@ -189,8 +189,10 @@ class Client:
             return
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
             logging.error("Connection closed: %s", e)
+            self.shutdown()
             return
         self.__output_results()
+        self.shutdown()
 
     def __receive_results(self):
         while not self.should_stop:
