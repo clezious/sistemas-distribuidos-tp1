@@ -1,3 +1,4 @@
+import errno
 import logging
 import threading
 import queue
@@ -186,17 +187,22 @@ class OutputBoundary():
                 self.connected_clients.add(client_id)
                 self.access_times.pop(client_id, None)
                 self.client_sockets.add(client_socket)
-        except BrokenPipeError:
+        except (BrokenPipeError, EOFError, ConnectionResetError):
             logging.error(
                 "[CLIENT %s] Connection closed by client", client_id)
             return
+        except OSError as e:
+            if e.errno == errno.EBADF:
+                logging.info("[CLIENT %s] Connection closed", client_id)
+                return
+            raise e
 
         with client_socket:
             eofs = {query: False for query in self.result_queues.keys()}
 
             while not all(eofs.values()):
                 query, packet = results_queue.get(block=True)
-                logging.info("Received result: %s", (query, packet))
+                logging.debug("Received result: %s", (query, packet))
                 if query is None and packet is None:
                     logging.info("[CLIENT %s] disconnected due to shutdown or cleaner", client_id)
                     break
@@ -209,9 +215,8 @@ class OutputBoundary():
                     client_socket.sendall(packet.encode())
                     logging.debug("[CLIENT %s] Sent result: %s",
                                   client_id, packet)
-                except BrokenPipeError:
-                    logging.error(
-                        "[CLIENT %s] Connection closed by client", client_id)
+                except (BrokenPipeError, ConnectionResetError):
+                    logging.error("[CLIENT %s] Connection closed by client", client_id)
                     break
 
         with self.lock:
@@ -219,4 +224,4 @@ class OutputBoundary():
             self.connected_clients.discard(client_id)
             self.access_times.pop(client_id, None)
             self.client_sockets.discard(client_socket)
-        logging.info("[CLIENT %s] connection closed", client_id)
+        logging.info("[CLIENT %s] Connection closed", client_id)
