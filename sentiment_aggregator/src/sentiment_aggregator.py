@@ -35,6 +35,10 @@ class SentimentAggregator:
 
     def _calculate_percentile(self, eof_packet: EOFPacket):
         client_id = eof_packet.client_id
+        if client_id not in self.books_stats:
+            logging.warning("No data received for client %d", client_id)
+            return
+
         stats: list[BookStats] = []
         for title, book_stats in self.books_stats[client_id].items():
             average_score = book_stats["total_score"] / book_stats["total_reviews"]

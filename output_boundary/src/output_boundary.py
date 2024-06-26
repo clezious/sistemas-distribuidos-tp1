@@ -105,8 +105,8 @@ class OutputBoundary():
                     self.queues[client_id].put((None, None))
                     self.queues.pop(client_id, None)
                     self.access_times.pop(client_id, None)
-
-            self.condition.wait(QUEUE_TIMEOUT // 10)
+            with self.condition:
+                self.condition.wait(QUEUE_TIMEOUT // 10)
         logging.info("[CLEANER] Stopped")
 
     def _init_middleware(self):
@@ -177,6 +177,7 @@ class OutputBoundary():
 
     def __handle_client_connection(
             self, client_socket: socket.socket):
+        client_id = 'unknown'
         try:
             client_id = self.__receive_client_id(client_socket)
             results_queue = self.queues.get(

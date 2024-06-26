@@ -95,8 +95,8 @@ class ReviewFilter:
                         client_id)
                     self._reset_filter(client_id)
                     # TODO: Should it send an EOF to the next node?
-
-            self.condition.wait(CLEANUP_TIMEOUT // 10)
+            with self.condition:
+                self.condition.wait(CLEANUP_TIMEOUT // 10)
         logging.info("Cleaner thread stopped")
 
     def _books_receiver(self):

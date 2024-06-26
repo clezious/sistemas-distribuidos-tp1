@@ -13,6 +13,7 @@ from common.result_packet import ResultPacket
 LENGTH_BYTES = 2
 OUTPUT_DIR = "../output"
 CLIENT_ID_BYTES = 2
+WAIT_TIMEOUT = 10
 
 
 class GracefulShutdown(Exception):
@@ -84,9 +85,10 @@ class Client:
         self.results_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.results_thread = None
         self.client_id = None
-        self.client_id_condition = threading.Condition()
+        self.condition = threading.Condition()
         self.results = {query: [] for query in range(1, 6)}
         self.should_stop = False
+        self.connected_to_output = False
         signal.signal(signal.SIGTERM, self.__graceful_shutdown)
 
     def __graceful_shutdown(self, _signum, _frame):
@@ -105,24 +107,24 @@ class Client:
             self.books_socket.shutdown(socket.SHUT_RDWR)
             self.books_socket.close()
         except OSError as e:
-            logging.error("Error while closing books socket: %s", e)
+            logging.error("Error while closing books socket: %s - Skipping", e)
 
         try:
             self.reviews_socket.shutdown(socket.SHUT_RDWR)
             self.reviews_socket.close()
         except OSError as e:
-            logging.error("Error while closing reviews socket: %s", e)
+            logging.error("Error while closing reviews socket: %s - Skipping", e)
 
         try:
             self.results_socket.shutdown(socket.SHUT_RDWR)
             self.results_socket.close()
         except OSError as e:
-            logging.error("Error while closing results socket: %s", e)
+            logging.error("Error while closing results socket: %s - Skipping", e)
 
         logging.info("Sockets closed")
-        with self.client_id_condition:
-            self.client_id_condition.notify_all()
-        logging.info("Client id set to -1 and notified all threads")
+        with self.condition:
+            self.condition.notify_all()
+        logging.info("Notified all threads")
 
     def run(self):
         start = time.time()
@@ -137,8 +139,8 @@ class Client:
         except ConnectionRefusedError:
             logging.error("Connection refused")
             self.shutdown()
-        except ConnectionResetError:
-            logging.error("Connection reset by boundary")
+        except (ConnectionResetError, EOFError):
+            logging.error("Connection reset by gateway")
             if not self.should_stop:
                 self.shutdown()
         except (BrokenPipeError, OSError) as e:
@@ -157,10 +159,17 @@ class Client:
         logging.info("Connected to %s:%d", *self.book_gateway_addr)
 
         client_id_bytes = receive_exact(self.books_socket, CLIENT_ID_BYTES)
-        self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
-        logging.info("Received client id: %d", self.client_id)
-        with self.client_id_condition:
-            self.client_id_condition.notify_all()
+        with self.condition:
+            self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
+            logging.info("Received client id: %d", self.client_id)
+            self.condition.notify_all()
+            logging.info("Waiting for output connection - timeout: %s seconds", WAIT_TIMEOUT)
+            if not self.condition.wait_for(lambda: self.connected_to_output or self.should_stop, WAIT_TIMEOUT):
+                logging.error("Output connection timeout")
+                self.shutdown()
+
+        if self.should_stop:
+            raise GracefulShutdown
 
         with self.books_socket:
             with open(self.books_path, encoding="utf-8") as csvfile:
@@ -179,6 +188,10 @@ class Client:
 
     def receive_results(self):
         self.results_socket.connect(self.result_gateway_addr)
+        with self.condition:
+            self.connected_to_output = True
+            self.condition.notify_all()
+
         logging.info("Connected to %s:%d", *self.result_gateway_addr)
         try:
             with self.results_socket:
@@ -192,6 +205,7 @@ class Client:
             self.shutdown()
             return
         self.__output_results()
+        logging.info("Finished receiving results, shutting down")
         self.shutdown()
 
     def __receive_results(self):
@@ -205,15 +219,6 @@ class Client:
             except EOFError:
                 logging.info("EOF reached")
                 break
-            except ConnectionResetError:
-                logging.info("Connection closed by server")
-                break
-            except OSError as e:
-                if e.errno == errno.EBADF:
-                    logging.info("Connection closed")
-                    break
-                else:
-                    raise e
 
     def __output_results(self):
         for query in self.results.keys():
@@ -234,8 +239,11 @@ class Client:
                 writer.writerow(row)
 
     def __send_client_id(self, socket: socket.socket):
-        with self.client_id_condition:
-            self.client_id_condition.wait_for(lambda: self.client_id is not None)
+        with self.condition:
+            logging.info("Waiting for client id")
+            if not self.condition.wait_for(lambda: self.client_id is not None, WAIT_TIMEOUT):
+                logging.error("Client id not received in time")
+                self.shutdown()
 
         if self.should_stop:
             raise GracefulShutdown
