@@ -91,20 +91,38 @@ class Client:
 
     def __graceful_shutdown(self, _signum, _frame):
         logging.info("Graceful shutdown starting")
-        self.should_stop = True
-        self.books_socket.close()
-        self.reviews_socket.close()
-        self.results_socket.close()
-        logging.info("Sockets closed")
-
-        with self.client_id_condition:
-            self.client_id = -1
-            self.client_id_condition.notify_all()
-        logging.info("Client id set to -1 and notified all threads")
+        self.shutdown()
 
         if self.results_thread:
             self.results_thread.join()
         logging.info("Results thread joined")
+
+    def shutdown(self):
+        if self.should_stop:
+            return
+        self.should_stop = True
+        try:
+            self.books_socket.shutdown(socket.SHUT_RDWR)
+            self.books_socket.close()
+        except OSError as e:
+            logging.error("Error while closing books socket: %s", e)
+
+        try:
+            self.reviews_socket.shutdown(socket.SHUT_RDWR)
+            self.reviews_socket.close()
+        except OSError as e:
+            logging.error("Error while closing reviews socket: %s", e)
+
+        try:
+            self.results_socket.shutdown(socket.SHUT_RDWR)
+            self.results_socket.close()
+        except OSError as e:
+            logging.error("Error while closing results socket: %s", e)
+
+        logging.info("Sockets closed")
+        with self.client_id_condition:
+            self.client_id_condition.notify_all()
+        logging.info("Client id set to -1 and notified all threads")
 
     def run(self):
         start = time.time()
@@ -118,8 +136,15 @@ class Client:
             logging.info(f"Sent all reviews in {time.time() - start} seconds")
         except ConnectionRefusedError:
             logging.error("Connection refused")
-        except (BrokenPipeError, ConnectionResetError, OSError) as e:
+            self.shutdown()
+        except ConnectionResetError:
+            logging.error("Connection reset by boundary")
+            if not self.should_stop:
+                self.shutdown()
+        except (BrokenPipeError, OSError) as e:
             logging.info("Connection closed: %s", e)
+            if not self.should_stop:
+                self.shutdown()
         except GracefulShutdown:
             logging.info("Graceful shutdown")
 
