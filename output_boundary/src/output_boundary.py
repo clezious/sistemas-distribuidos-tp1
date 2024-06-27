@@ -33,6 +33,7 @@ class OutputBoundary():
         self.client_sockets = set()
         self.should_stop = False
         self.condition = threading.Condition()
+        self.received_packets: dict[int, set] = {}
 
         logging.info("Listening for connections and replying results")
 
@@ -121,8 +122,16 @@ class OutputBoundary():
 
     def _handle_query_result(self, query: int):
         def handle_result(result: Packet):
+            client_id = result.client_id
+            if (query, client_id, result.packet_id) in self.received_packets.get(client_id, set()):
+                logging.warning("Filtering duplicate result: %s", result)
+                return
+
+            if client_id not in self.received_packets:
+                self.received_packets[client_id] = set()  # TODO: CLEAN THIS WITH CLEANER
+            self.received_packets[client_id].add((query, client_id, result.packet_id))
+
             result_packet = ResultPacket(query, result)
-            client_id = result_packet.client_id
             with self.lock:
                 if client_id not in self.queues:
                     self.queues[client_id] = queue.Queue(
@@ -136,6 +145,11 @@ class OutputBoundary():
     def _handle_query_eof(self, query: int):
         def handle_eof(eof_packet: Packet):
             client_id = eof_packet.client_id
+            # if client_id not in self.received_packets:
+            #     logging.warning("Received EOF without results - ignoring: %s", eof_packet) THINK ABOUT THIS
+            #     return
+
+            self.received_packets.pop(client_id, None)
             logging.info("[CLIENT %s] Query %s finished", client_id, query)
             with self.lock:
                 if client_id not in self.queues:
