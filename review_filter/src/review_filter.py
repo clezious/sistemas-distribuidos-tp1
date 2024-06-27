@@ -202,32 +202,25 @@ class ReviewFilter:
             self.reviews_middleware.return_eof(eof_packet)
 
     def _filter_review(self, review: Review):
-        if review.client_id not in self.eofs:
-            # logging.warning("Received review before books EOF - requeuing")
-            # TODO: What happens if the review is requeued AFTER the EOF?
-            # TODO: If the review is requeued but the EOF is already queued,
-            # the review will be lost -> Eofs should be requeued if this happens
+        with self.lock:
+            self.last_packet_timestamp[review.client_id] = time.time()
+        if review.book_title in self.books.get(review.client_id, {}):
+            author = self.books[review.client_id][review.book_title]
+            review_and_author = ReviewAndAuthor(
+                review.book_title,
+                review.score,
+                review.text,
+                author,
+                review.client_id,
+                review.packet_id
+            )
+            self.reviews_middleware.send(review_and_author.encode())
+            logging.debug("Filter passed - review for: %s", review.book_title)
+        elif review.client_id not in self.eofs:
             if review.client_id not in self.should_requeue_eof:
                 self.__add_should_requeue_eof(review.client_id)
             return CallbackAction.REQUEUE
 
-        with self.lock:
-            self.last_packet_timestamp[review.client_id] = time.time()
-
-        if review.book_title not in self.books.get(review.client_id, {}):
-            return CallbackAction.ACK
-
-        author = self.books[review.client_id][review.book_title]
-        review_and_author = ReviewAndAuthor(
-            review.book_title,
-            review.score,
-            review.text,
-            author,
-            review.client_id,
-            review.packet_id
-        )
-        self.reviews_middleware.send(review_and_author.encode())
-        logging.debug("Filter passed - review for: %s", review.book_title)
         return CallbackAction.ACK
 
     def _init_state(self):
