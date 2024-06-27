@@ -1,14 +1,13 @@
 ![](https://i.imgur.com/P0aqOMI.jpg)
 
-# sistemas-distribuidos-tp1
-
-TP1 Sistemas Distribuídos FIUBA 2024 1c
+TP 1 y 2 - Sistemas Distribuídos FIUBA 2024 1c
 
 | Nombre           | Padrón | Email                |
 | ---------------- | ------ | -------------------- |
 | Manuel Reberendo | 100930 | mreberendo@fi.uba.ar |
 | Manuel Sanchez   | 107951 | msanchezf@fi.uba.ar  |
 
+# Parte 1
 ## Scope
 
 El objetivo de este sistema es procesar 5 queries sobre un dataset de libros y reviews. Las queries son las siguientes:
@@ -126,3 +125,15 @@ Finalmente, el input boundary utiliza funciones auxiliares de recepcion de mensa
 [Link al diagrama](https://viewer.diagrams.net/?page-id=9488BZJgpK-lBa-DFY4Z&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=9488BZJgpK-lBa-DFY4Z#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
 En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las queries. Las queries se pueden interpretar como los distintos caminos desde el input boundary hasta el output boundary. Algunas queries, como la 3 y la 4 comparten parte de su camino, hasta bifurcarse. De esta forma, se optimiza el flujo de informacion, y no se repiten calculos innecesarios.
+
+
+# Parte 2:
+## Multiples Clientes
+Para soportar que múltiples clientes se conecten en simultaneo al sistema (Sin esperar a que cada uno termine de enviar sus datos y recibir sus resultados para que se conecte el próximo) se realizaron las siguientes modificaciones:
+- El servicio de `Input` ahora asigna un `client_id` a cada cliente al momento de conectarse.
+- Este `client_id` se agrega a todos los paquetes que se generen a partir de datos enviados por ese cliente
+- Todos los servicios con estado ahora guardarán el estado de cada cliente por separado, usando el `client_id` para diferenciarlos
+- El servicio de `Output` recibe el `client_id` al conectarse un nuevo cliente, y en base a eso le envia los resultados que le correspondan
+- En algunos servicios se implementó el uso de Threads para poder soportar la nueva simultaneidad de clientes:
+  - En `Review Filter` ahora hay un thread recibiendo libros y otro recibiendo reviews en simultaneo.
+  - En `Input`
