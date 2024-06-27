@@ -1,5 +1,4 @@
 import csv
-import errno
 from io import TextIOWrapper
 import logging
 import signal
@@ -14,6 +13,7 @@ LENGTH_BYTES = 2
 OUTPUT_DIR = "../output"
 CLIENT_ID_BYTES = 2
 WAIT_TIMEOUT = 10
+EOF_STR = "EOF"
 
 
 class GracefulShutdown(Exception):
@@ -71,17 +71,14 @@ def process_query_5(payload: list[str]):
 class Client:
     def __init__(self,
                  books_path: str,
-                 book_gateway_addr: tuple[str, int],
                  reviews_path: str,
-                 review_gateway_addr: tuple[str, int],
-                 result_gateway_addr: tuple[str, int]):
+                 input_gateway_addr: tuple[str, int],
+                 output_gateway_addr: tuple[str, int]):
         self.books_path = books_path
-        self.book_gateway_addr = book_gateway_addr
         self.reviews_path = reviews_path
-        self.review_gateway_addr = review_gateway_addr
-        self.result_gateway_addr = result_gateway_addr
-        self.books_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.reviews_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.input_gateway_addr = input_gateway_addr
+        self.output_gateway_addr = output_gateway_addr
+        self.input_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.results_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.results_thread = None
         self.client_id = None
@@ -103,23 +100,18 @@ class Client:
         if self.should_stop:
             return
         self.should_stop = True
-        try:
-            self.books_socket.shutdown(socket.SHUT_RDWR)
-            self.books_socket.close()
-        except OSError as e:
-            logging.error("Error while closing books socket: %s - Skipping", e)
 
         try:
-            self.reviews_socket.shutdown(socket.SHUT_RDWR)
-            self.reviews_socket.close()
+            self.input_socket.shutdown(socket.SHUT_RDWR)
+            self.input_socket.close()
         except OSError as e:
-            logging.error("Error while closing reviews socket: %s - Skipping", e)
+            logging.error("Error while closing input gateway socket: %s - Skipping", e)
 
         try:
             self.results_socket.shutdown(socket.SHUT_RDWR)
             self.results_socket.close()
         except OSError as e:
-            logging.error("Error while closing results socket: %s - Skipping", e)
+            logging.error("Error while closing output gateway socket: %s - Skipping", e)
 
         logging.info("Sockets closed")
         with self.condition:
@@ -132,10 +124,23 @@ class Client:
         self.results_thread = threading.Thread(target=self.receive_results)
         self.results_thread.start()
         try:
-            self.send_books()
-            logging.info(f"Sent all books in {time.time() - start} seconds")
-            self.send_reviews()
-            logging.info(f"Sent all reviews in {time.time() - start} seconds")
+            self.__connect_to_input_gateway()
+            with self.input_socket:
+                logging.info("Sending books")
+                self.send_books()
+                logging.info(f"Sent all books in {time.time() - start} seconds")
+
+                logging.info("Sending books EOF")
+                send_line(EOF_STR, self.input_socket)
+                logging.info("Sent books EOF")
+
+                logging.info("Sending reviews")
+                self.send_reviews()
+                logging.info(f"Sent all reviews in {time.time() - start} seconds")
+
+                logging.info("Sending reviews EOF")
+                send_line(EOF_STR, self.input_socket)
+                logging.info("Sent reviews EOF")
         except ConnectionRefusedError:
             logging.error("Connection refused")
             self.shutdown()
@@ -154,45 +159,42 @@ class Client:
         logging.info("Client finished")
         logging.info(f"Total time: {time.time() - start}")
 
-    def send_books(self):
-        self.books_socket.connect(self.book_gateway_addr)
-        logging.info("Connected to %s:%d", *self.book_gateway_addr)
+    def __connect_to_input_gateway(self):
+        self.input_socket.connect(self.input_gateway_addr)
+        logging.info("Connected to input %s:%d", *self.input_gateway_addr)
 
-        client_id_bytes = receive_exact(self.books_socket, CLIENT_ID_BYTES)
+        client_id_bytes = receive_exact(self.input_socket, CLIENT_ID_BYTES)
         with self.condition:
             self.client_id = int.from_bytes(client_id_bytes, byteorder='big')
             logging.info("Received client id: %d", self.client_id)
             self.condition.notify_all()
-            logging.info("Waiting for output connection - timeout: %s seconds", WAIT_TIMEOUT)
+            logging.info("Checking for output connection - timeout: %s seconds", WAIT_TIMEOUT)
             if not self.condition.wait_for(lambda: self.connected_to_output or self.should_stop, WAIT_TIMEOUT):
                 logging.error("Output connection timeout")
                 self.shutdown()
+            else:
+                logging.info("Output connection established")
 
         if self.should_stop:
             raise GracefulShutdown
 
-        with self.books_socket:
-            with open(self.books_path, encoding="utf-8") as csvfile:
-                csvfile.readline()  # Skip header
-                self.__send_file(csvfile, self.books_socket)
+    def send_books(self):
+        with open(self.books_path, encoding="utf-8") as csvfile:
+            csvfile.readline()  # Skip header
+            self.__send_file(csvfile, self.input_socket)
 
     def send_reviews(self):
-        self.reviews_socket.connect(self.review_gateway_addr)
-        logging.info("Connected to %s:%d", *self.review_gateway_addr)
-        self.__send_client_id(self.reviews_socket)
-
-        with self.books_socket:
-            with open(self.reviews_path, encoding="utf-8") as csvfile:
-                csvfile.readline()  # Skip header
-                self.__send_file(csvfile, self.reviews_socket)
+        with open(self.reviews_path, encoding="utf-8") as csvfile:
+            csvfile.readline()  # Skip header
+            self.__send_file(csvfile, self.input_socket)
 
     def receive_results(self):
-        self.results_socket.connect(self.result_gateway_addr)
+        self.results_socket.connect(self.output_gateway_addr)
         with self.condition:
             self.connected_to_output = True
             self.condition.notify_all()
 
-        logging.info("Connected to %s:%d", *self.result_gateway_addr)
+        logging.info("Connected to output %s:%d", *self.output_gateway_addr)
         try:
             with self.results_socket:
                 self.__send_client_id(self.results_socket)

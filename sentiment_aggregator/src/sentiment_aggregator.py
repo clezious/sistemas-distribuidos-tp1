@@ -58,7 +58,7 @@ class SentimentAggregator:
             eof_packet.packet_id
         ).encode())
         self.persistence_manager.delete_keys(f"{BOOK_STATS_PREFIX}{client_id}_")
-        self.books_stats.pop(client_id)
+        self.books_stats.pop(client_id, None)
 
     def _save_stats(self, book_stats: BookStats):
         client_id = book_stats.client_id

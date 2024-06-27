@@ -6,8 +6,8 @@ default: docker-image
 all:
 
 docker-image:
-	docker build -f ./input_boundary/Dockerfile -t "input_boundary:latest" .
-	docker build -f ./output_boundary/Dockerfile -t "output_boundary:latest" .
+	docker build -f ./input_boundary/Dockerfile -t "input_gateway:latest" .
+	docker build -f ./output_boundary/Dockerfile -t "output_gateway:latest" .
 	docker build -f ./client/Dockerfile -t "client:latest" .
 	docker build -f ./book_filter/Dockerfile -t "book_filter:latest" .
 	docker build -f ./review_filter/Dockerfile -t "review_filter:latest" .

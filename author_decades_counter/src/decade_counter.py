@@ -42,7 +42,7 @@ class DecadeCounter:
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             self.persistence_manager.delete_keys(f"{AUTHOR_PREFIX}{eof_packet.client_id}_", secondary_key=str(eof_packet.client_id))
-            self.authors = {}
+            self.authors.pop(eof_packet.client_id, None)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.middleware.send(

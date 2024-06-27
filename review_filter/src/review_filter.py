@@ -46,6 +46,7 @@ class ReviewFilter:
         self.should_stop = False
         self.lock = threading.Lock()
         self.condition = threading.Condition()
+        self.persistence_manager_lock = threading.Lock()
 
     def start(self):
         self.books_receiver.start()
@@ -107,8 +108,7 @@ class ReviewFilter:
             eof_callback=self.handle_books_eof,
             output_queues=self.output_queues,
             output_exchanges=self.output_exchanges,
-            instance_id=self.instance_id,
-            persistence_manager=self.persistence_manager)
+            instance_id=self.instance_id)
         self.books_middleware.start()
 
     def _reviews_receiver(self):
@@ -132,42 +132,48 @@ class ReviewFilter:
         if client_id not in self.books:
             self.books[client_id] = {}
         self.books[client_id][book.title] = book.authors
-        self.persistence_manager.append(f"{BOOKS_KEY}_{client_id}", json.dumps([book.title, book.authors]))
+        with self.persistence_manager_lock:
+            self.persistence_manager.append(f"{BOOKS_KEY}_{client_id}", json.dumps([book.title, book.authors]))
 
         logging.debug("Received and saved book: %s", book.title)
         if len(self.books[client_id]) % 2000 == 0:
             logging.info("[Client %s] Stored books count: %d", client_id,  len(self.books[client_id]))
 
     def _reset_filter(self, client_id: int):
-        self.books.pop(client_id, None)
-        self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
-        self.eofs.discard(client_id)
-        self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
+        logging.info("Starting filter reset for client id %s", client_id)
+        with self.persistence_manager_lock:
+            self.books.pop(client_id, None)
+            self.persistence_manager.delete_keys(f"{BOOKS_KEY}_{client_id}")
+            self.eofs.discard(client_id)
+            self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
 
         if client_id in self.should_requeue_eof:
             self.__remove_should_requeue_eof(client_id)
 
-        self.last_packet_timestamp.pop(client_id, None)
+        with self.lock:
+            self.last_packet_timestamp.pop(client_id, None)
 
         logging.info("Filter reset for client id %s", client_id)
 
     def __add_should_requeue_eof(self, client_id: int):
-        self.should_requeue_eof.add(client_id)
-        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
+        with self.persistence_manager_lock:
+            self.should_requeue_eof.add(client_id)
+            self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
 
     def __remove_should_requeue_eof(self, client_id: int):
-        self.should_requeue_eof.remove(client_id)
-        self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
+        with self.persistence_manager_lock:
+            self.should_requeue_eof.remove(client_id)
+            self.persistence_manager.put(REQUEUE_EOF_KEY, json.dumps(list(self.should_requeue_eof)))
 
     def handle_books_eof(self, eof_packet: EOFPacket):
-        logging.debug(f" [x] Received Books EOF: {eof_packet}")
+        logging.info(f" [x] Received Books EOF: {eof_packet}")
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
             with self.lock:
                 self.last_packet_timestamp[eof_packet.client_id] = time.time()
-
-        self.eofs.add(eof_packet.client_id)
-        self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
+        with self.persistence_manager_lock:
+            self.eofs.add(eof_packet.client_id)
+            self.persistence_manager.put(EOFS_KEY, json.dumps(list(self.eofs)))
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             logging.debug(f" [x] Finished propagating Books EOF: {eof_packet}")
@@ -176,16 +182,15 @@ class ReviewFilter:
             logging.debug(f" [x] Propagated Books EOF: {eof_packet}")
 
     def handle_reviews_eof(self, eof_packet: EOFPacket):
-        if eof_packet.client_id not in self.eofs or eof_packet.client_id in self.should_requeue_eof:
-            logging.warning("Received reviews EOF but have to requeue it - requeuing")
+        if (eof_packet.client_id not in self.eofs and eof_packet.client_id in self.books) or eof_packet.client_id in self.should_requeue_eof:
+            logging.warning(f"Received reviews EOF for client {eof_packet.client_id} but have to requeue it - requeuing")
             if eof_packet.client_id in self.should_requeue_eof:
                 self.__remove_should_requeue_eof(eof_packet.client_id)
             return CallbackAction.REQUEUE
 
         if self.instance_id not in eof_packet.ack_instances:
             eof_packet.ack_instances.append(self.instance_id)
-            with self.lock:
-                self._reset_filter(eof_packet.client_id)
+            self._reset_filter(eof_packet.client_id)
 
         if len(eof_packet.ack_instances) == self.cluster_size:
             self.reviews_middleware.send(EOFPacket(

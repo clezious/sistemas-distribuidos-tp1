@@ -34,6 +34,7 @@ class PersistenceManager:
         try:
             logging.debug(f"Writing to {path}")
             data = data.encode('unicode_escape')
+            data += b'\n'
             length_bytes = len(data).to_bytes(
                 LENGTH_BYTES, byteorder='big')
             temp_path = f'{self.storage_path}/{TEMP_FILE}'
@@ -82,7 +83,7 @@ class PersistenceManager:
         if key not in self._keys_index.get(secondary_key, {}):
             return ''
         path = f'{self.storage_path}/{self._get_internal_key(key, secondary_key)}'
-        return self._read(path)
+        return self._read(path).removesuffix('\n')
 
     def append(self, key: str, value: str, secondary_key: str = 'default'):
         try:

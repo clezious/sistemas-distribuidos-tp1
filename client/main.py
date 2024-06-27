@@ -21,19 +21,11 @@ def initialize_config():
 
     config_params = {}
     try:
-        config_params["book_boundary_port"] = int(
-            os.getenv('BOOK_BOUNDARY_PORT',
-                      config["DEFAULT"]["BOOK_BOUNDARY_PORT"]))
-        config_params["book_boundary_ip"] = os.getenv(
-            'BOOK_BOUNDARY_IP', config["DEFAULT"]["BOOK_BOUNDARY_IP"])
-        config_params["review_boundary_port"] = int(
-            os.getenv('REVIEW_BOUNDARY_PORT'))
-        config_params["review_boundary_ip"] = os.getenv('REVIEW_BOUNDARY_IP')
-        config_params["result_boundary_port"] = int(
-            os.getenv('RESULT_BOUNDARY_PORT'))
-        config_params["result_boundary_ip"] = os.getenv('RESULT_BOUNDARY_IP')
-        config_params["logging_level"] = os.getenv(
-            'LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
+        config_params["input_gateway_port"] = int(os.getenv('INPUT_GATEWAY_PORT'))
+        config_params["input_gateway_ip"] = os.getenv('INPUT_GATEWAY_IP')
+        config_params["output_gateway_port"] = int(os.getenv('OUTPUT_GATEWAY_PORT'))
+        config_params["output_gateway_ip"] = os.getenv('OUTPUT_GATEWAY_IP')
+        config_params["logging_level"] = os.getenv('LOGGING_LEVEL', config["DEFAULT"]["LOGGING_LEVEL"])
     except KeyError as e:
         raise e
     except ValueError as e:
@@ -47,13 +39,11 @@ def main():
     initialize_log(config_params["logging_level"])
 
     client = Client("../datasets/books_data.csv",
-                    (config_params["book_boundary_ip"],
-                     config_params["book_boundary_port"]),
                     "../datasets/Books_rating.csv",
-                    (config_params["review_boundary_ip"],
-                     config_params["review_boundary_port"]),
-                    (config_params["result_boundary_ip"],
-                     config_params["result_boundary_port"]))
+                    (config_params["input_gateway_ip"],
+                     config_params["input_gateway_port"]),
+                    (config_params["output_gateway_ip"],
+                     config_params["output_gateway_port"]))
     client.run()
 
 

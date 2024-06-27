@@ -26,8 +26,7 @@ class ConfigGenerator:
 
     def generate(self) -> dict:
         self._generate_client()
-        self._generate_input_boundary("book", ["books"])
-        self._generate_input_boundary("review", ["reviews"])
+        self._generate_input_gateway(["books", "reviews"])
         self._generate_book_filters_by_category_computers()
         self._generate_book_filters_by_category_fiction()
         self._generate_book_filters_by_year_2000_2023()
@@ -41,7 +40,7 @@ class ConfigGenerator:
         self._generate_sentiment_analyzer()
         self._generate_sentiment_aggregator()
         self._generate_review_mean_aggregator()
-        self._generate_output_boundary()
+        self._generate_output_gateway()
         self._generate_docktor()
         return self.config
 
@@ -280,31 +279,29 @@ class ConfigGenerator:
             self._generate_service(
                 f"client_{instance_id}",
                 "client:latest",
-                ["BOOK_BOUNDARY_PORT=12345",
-                 "BOOK_BOUNDARY_IP=book_boundary",
-                 "REVIEW_BOUNDARY_PORT=12345",
-                 "REVIEW_BOUNDARY_IP=review_boundary",
-                 "RESULT_BOUNDARY_PORT=12345",
-                 "RESULT_BOUNDARY_IP=output_boundary"],
+                ["INPUT_GATEWAY_PORT=12345",
+                 "INPUT_GATEWAY_IP=input_gateway",
+                 "OUTPUT_GATEWAY_PORT=12345",
+                 "OUTPUT_GATEWAY_IP=output_gateway"],
                 ["test_net"],
                 ["./datasets:/datasets:ro", f"./output/output-{instance_id}:/output"],
-                depends_on=["book_boundary", "review_boundary"],
+                depends_on=["input_gateway", "output_gateway"],
             )
 
-    def _generate_input_boundary(self,
-                                 boundary_type: str,
-                                 output_exchanges: list[str] = []):
+    def _generate_input_gateway(self, output_exchanges: list[str] = []):
         self._generate_service(
-            f"{boundary_type}_boundary",
-            "input_boundary:latest",
-            [f"BOUNDARY_TYPE={boundary_type}",
-             "SERVER_PORT=12345",
-             "SERVER_LISTEN_BACKLOG=1"],
+            "input_gateway",
+            "input_gateway:latest",
+            ["SERVER_PORT=12345",
+             "SERVER_LISTEN_BACKLOG=1",
+             "BOOKS_EXCHANGE=books",
+             "REVIEWS_EXCHANGE=reviews",
+             ],
             ["test_net"],
             output_exchanges=output_exchanges
         )
 
-    def _generate_output_boundary(self):
+    def _generate_output_gateway(self):
         result_queues = json.dumps({
             1: "query1_result",
             2: "query2_result",
@@ -313,8 +310,8 @@ class ConfigGenerator:
             5: "query5_result",
         }, separators=(',', ':'))
         self._generate_service(
-            "output_boundary",
-            "output_boundary:latest",
+            "output_gateway",
+            "output_gateway:latest",
             ["SERVER_PORT=12345",
              "SERVER_LISTEN_BACKLOG=1",
              f"RESULT_QUEUES={result_queues}"],
@@ -370,7 +367,7 @@ class ConfigGenerator:
             service_name="docktor",
             image="docktor:latest",
             environment=[
-                'EXCLUDED_CONTAINERS=["rabbitmq", "book_boundary", "review_boundary", "output_boundary", "client"]',
+                'EXCLUDED_CONTAINERS=["rabbitmq", "input_gateway", "output_gateway", "client"]',
                 "PROJECT_NAME=tp1",
                 "SLEEP_INTERVAL=0.07",
                 "KILL_PROBABILITY_PERCENTAGE=1",

@@ -3,7 +3,7 @@ import random
 from time import sleep
 import docker
 
-EXCLUDED_CONTAINERS = ["rabbitmq", "book_boundary", "review_boundary", "output_boundary", "client"]
+EXCLUDED_CONTAINERS = ["rabbitmq", "input_gateway", "output_gateway", "client"]
 FILTERS = {
     "label": "com.docker.compose.project=tp1"
 }
