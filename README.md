@@ -142,9 +142,10 @@ Para soportar que múltiples clientes se conecten en simultaneo al sistema (Sin 
 Para soportar la tolerancia a fallas se implementaron las siguientes modificaciones:
 ### Uso de ACKs en rabbitMQ
 - Se implementó el uso de ACKs en RabbitMQ para garantizar que los mensajes no se pierdan en caso de que un servicio falle mientras los está procesando.
-- rabbit garantiza que los mensajes se volverán a enviar si no se recibe un ACK en un tiempo determinado, y permite además controlar la cantidad de mensajes máxima que puede tener para cada cola esperando sus ACKs.
+- Rabbit garantiza que los mensajes se volverán a enviar si no se recibe un ACK en un tiempo determinado, y permite además controlar la cantidad de mensajes máxima que puede tener para cada cola esperando sus ACKs.
 ### Persistencia y recuperación de estado
 - Se implementó la persistencia de estado en los servicios que lo requieren, guardando el estado en archivos que se leerán al iniciar el servicio.
+  - Se intenta siempre mantener el estado también en memoria para agilizar el procesamiento, de modo que la lectura del archivo solo se haga al iniciar el servicio y tener que recuperar el estado en memoria.
 - Para esto, se agregó la clase `PersistenceManager` que sirve como una interfaz de almacenamiento clave - valor, que pueden usar los servicios para guardar y recuperar su estado.
     - Los métodos soportados son:
       - `get`, que recupera el valor asociado a una clave, leyendo del archivo correspondiente.
@@ -160,7 +161,23 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
     - Al hacer una escritura con `put`, en realidad primero se escribe sobre un archivo temporal, y luego se renombra a su nombre final. De esta forma, si la escritura falla, el archivo final no se sobreescribe y se mantiene el estado anterior.
     - Al hacer tanto un `put` como un `append`, se guarda al comienzo de cada linea la longitud de los datos contenidos en esa linea. De esta forma, si la escritura falla, se puede detectar al momento de leer que la linea está corrupta y se descarta.
 ### Recuperación de servicios caídos: *Docktor* y *Health Checks*
-- Se implementó un servicio llamado `Docktor` que se encarga de monitorear el estado de los servicios y reiniciarlos en caso de que fallen.
-- Para esto, todos los servicios tienen ahora un Thread con una instancia de una nueva clase `HealthCheck` que se encarga de recibir conexiones TCP en un puerto determinado para comprobar que el servicio está funcionando.
+- `Docktor`
+  - Se implementó un servicio llamado `Docktor` que se encarga de monitorear el estado de los servicios y reiniciarlos en caso de que fallen.
+    - Es necesario que haya multiples instancias de `Docktor`para que si uno falla pueda ser también reiniciado (Siempre debe haber al menos 1 `Docktor` activo).
+      - Para evitar solapamientos entre `Docktors`, se garantiza que cada se encarga de monitorear una parte del total de servicios. Esto se hace con un mecanismo similar al de los `Routers`, es decir, se hashea el nombre del servicio y se realiza módulo con la cantidad de instancias de `Docktor`, y si el resultado coincide con el id de la instancia, entonces se encarga de monitorear ese servicio.
+        - Para garantizar que siempre se puedan recuperar todos los `Docktor`entre si, se organizan en forma de anillo, donde cada instancia se encarga de monitorerar a la siguiente en el anillo en vez de realizar el hash.
+    - La interfaz con el servicio de Docker, siendo que los `Docktor` corren también en contenedores se hace gracias a *Docker in Docker*, que consiste en montar el socket de Docker del host en cada contenedor de `Docktor`.
+- `Health Checks`
+  - Todos los servicios tienen ahora un Thread con una instancia de una nueva clase `HealthCheck` que se encarga de recibir conexiones TCP en un puerto determinado para comprobar que el servicio está funcionando.
+  - Los `Docktor` se conectan a este puerto para comprobar que el servicio está funcionando, y si no lo logran (con un timeout determinado), reinician el servicio.
+
 ### Evitar procesamiento de mensajes duplicados
+- Por el diseño del sistema, puede suceder que se generen mensajes duplicados en las colas de RabbitMQ, ya que los servicios pueden fallar en medio del procesamiento de un mensaje, habiendo ya encolado emensajes en colas de salida, pero no haber enviado el ACK correspondiente a la cola de entrada.
+- En principio, esto no nos importa en los servicios que no tienen estado, pero si en los que sí lo tienen, ya que si un mensaje duplicado llega a un servicio con estado, puede alterar el estado del servicio y producir resultados incorrectos.
+- La solución para este problema involucra dos partes:
+  - Que el `Middleware` de los servicios interesados en evitar mensajes duplicados guarde el `id` de los paquetes que procesa, y que solo lo procese si no fue marcado como procesado antes.
+    - Esto debe además ser persistido en disco, ya que si un servicio falla y se reinicia, no debe volver a procesar mensajes que ya procesó antes, por eso el middleware ahora recibe una instancia opcional de `PersistenceManager`.
+  - Hay servicios que actualizan su estado como parte del procesamiento de un paquete y para los que procesar dos veces el mismo paquete no da igual que procesarlo solo una vez, y además persisten a disco este cambio.
+    - Pero el `Middleware` solo lo marca como procesado al finalizar el procesamiento, por lo tanto una falla justo antes de marcarse como procesado el paquete pero después de actualizar el estado del servicio provocaría que el paquete vuelva a ser procesado, y que a raíz de esto el servicio vuelva a cambiar su estado incorrectamente. 
+    - Es por eso que estos servicios deben persistír el id del paquete que generó el último cambio en ese estado, y si vuelven a recibirlo pueden detectarlo y simplemente evitar actualizar el estado otra vez.
 
