@@ -136,4 +136,31 @@ Para soportar que múltiples clientes se conecten en simultaneo al sistema (Sin 
 - El servicio de `Output` recibe el `client_id` al conectarse un nuevo cliente, y en base a eso le envia los resultados que le correspondan
 - En algunos servicios se implementó el uso de Threads para poder soportar la nueva simultaneidad de clientes:
   - En `Review Filter` ahora hay un thread recibiendo libros y otro recibiendo reviews en simultaneo.
-  - En `Input`
+  - En `Input` y `Output` se crearon threads para manejar la conexión de los clientes.
+
+## Tolerancia a fallas
+Para soportar la tolerancia a fallas se implementaron las siguientes modificaciones:
+## Uso de ACKs en rabbitMQ
+- Se implementó el uso de ACKs en RabbitMQ para garantizar que los mensajes no se pierdan en caso de que un servicio falle mientras los está procesando.
+- rabbit garantiza que los mensajes se volverán a enviar si no se recibe un ACK en un tiempo determinado, y permite además controlar la cantidad de mensajes máxima que puede tener para cada cola esperando sus ACKs.
+## Persistencia y recuperación de estado
+- Se implementó la persistencia de estado en los servicios que lo requieren, guardando el estado en archivos que se leerán al iniciar el servicio.
+- Para esto, se agregó la clase `PersistenceManager` que sirve como una interfaz de almacenamiento clave - valor, que pueden usar los servicios para guardar y recuperar su estado.
+    - Los métodos soportados son:
+      - `get`, que recupera el valor asociado a una clave, leyendo del archivo correspondiente.
+      - `put`, que internamente guarda en un archivo el valor asociado a una clave, sobreescribiendo el valor anterior si ya existía.
+      - `append`, que internamente agrega el valor asociado a una clave en una nueva linea al final del archivo correspondiente de existir, o como primer valor si no existe.
+      - `get_keys`, que dado un prefijo, devuelve todas las claves que empiezan con ese prefijo.
+      - `delete_keys`, que dado un prefijo, borra todas las claves que empiezan con ese prefijo (Borrando también los archivos asociados).
+    - El persistence manager no puede utilizar directamente la clave como nombre del archivo asociado, ya que las claves pueden contener caracteres no permitidos en nombres de archivos o pueden exceder el limite permitido de caracteres. Por lo tanto, se genera un `uuid` asociado a esa clave que será el nombre del archivo.
+        - Hacer esto requiere que además se guarde un indice de claves -> nombres de archivos, que a su vez debe ser persistido.
+        - Estos índices pueden crecer mucho en tamaño si un servicio maneja muchas claves, por eso se soporta un parámetro adicional `secondary_key` que permite agrupar todas las claves relacionadas en un solo archivo índice.
+- El gran problema de esta solución es que no se puede garantizar que el estado guardado sea consistente, ya que si un servicio falla mientras está guardando el estado, el archivo puede quedar corrupto.
+  - Para resolver esto, se implementaron los siguientes mecanismos:
+    - Al hacer una escritura con `put`, en realidad primero se escribe sobre un archivo temporal, y luego se renombra a su nombre final. De esta forma, si la escritura falla, el archivo final no se sobreescribe y se mantiene el estado anterior.
+    - Al hacer tanto un `put` como un `append`, se guarda al comienzo de cada linea la longitud de los datos contenidos en esa linea. De esta forma, si la escritura falla, se puede detectar al momento de leer que la linea está corrupta y se descarta.
+## Recuperación de servicios caídos: *Docktor* y *Health Checks*
+- Se implementó un servicio llamado `Docktor` que se encarga de monitorear el estado de los servicios y reiniciarlos en caso de que fallen.
+- Para esto, todos los servicios tienen ahora un Thread con una instancia de una nueva clase `HealthCheck` que se encarga de recibir conexiones TCP en un puerto determinado para comprobar que el servicio está funcionando.
+## Evitar procesamiento de mensajes duplicados
+
