@@ -138,12 +138,12 @@ Para soportar que múltiples clientes se conecten en simultaneo al sistema (Sin 
   - En `Review Filter` ahora hay un thread recibiendo libros y otro recibiendo reviews en simultaneo.
   - En `Input` y `Output` se crearon threads para manejar la conexión de los clientes.
 
-## Tolerancia a fallas
+## Tolerancia a fallos
 Para soportar la tolerancia a fallas se implementaron las siguientes modificaciones:
-## Uso de ACKs en rabbitMQ
+### Uso de ACKs en rabbitMQ
 - Se implementó el uso de ACKs en RabbitMQ para garantizar que los mensajes no se pierdan en caso de que un servicio falle mientras los está procesando.
 - rabbit garantiza que los mensajes se volverán a enviar si no se recibe un ACK en un tiempo determinado, y permite además controlar la cantidad de mensajes máxima que puede tener para cada cola esperando sus ACKs.
-## Persistencia y recuperación de estado
+### Persistencia y recuperación de estado
 - Se implementó la persistencia de estado en los servicios que lo requieren, guardando el estado en archivos que se leerán al iniciar el servicio.
 - Para esto, se agregó la clase `PersistenceManager` que sirve como una interfaz de almacenamiento clave - valor, que pueden usar los servicios para guardar y recuperar su estado.
     - Los métodos soportados son:
@@ -159,8 +159,8 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
   - Para resolver esto, se implementaron los siguientes mecanismos:
     - Al hacer una escritura con `put`, en realidad primero se escribe sobre un archivo temporal, y luego se renombra a su nombre final. De esta forma, si la escritura falla, el archivo final no se sobreescribe y se mantiene el estado anterior.
     - Al hacer tanto un `put` como un `append`, se guarda al comienzo de cada linea la longitud de los datos contenidos en esa linea. De esta forma, si la escritura falla, se puede detectar al momento de leer que la linea está corrupta y se descarta.
-## Recuperación de servicios caídos: *Docktor* y *Health Checks*
+### Recuperación de servicios caídos: *Docktor* y *Health Checks*
 - Se implementó un servicio llamado `Docktor` que se encarga de monitorear el estado de los servicios y reiniciarlos en caso de que fallen.
 - Para esto, todos los servicios tienen ahora un Thread con una instancia de una nueva clase `HealthCheck` que se encarga de recibir conexiones TCP en un puerto determinado para comprobar que el servicio está funcionando.
-## Evitar procesamiento de mensajes duplicados
+### Evitar procesamiento de mensajes duplicados
 
