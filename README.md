@@ -180,4 +180,5 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
   - Hay servicios que actualizan su estado como parte del procesamiento de un paquete y para los que procesar dos veces el mismo paquete no da igual que procesarlo solo una vez, y además persisten a disco este cambio.
     - Pero el `Middleware` solo lo marca como procesado al finalizar el procesamiento, por lo tanto una falla justo antes de marcarse como procesado el paquete pero después de actualizar el estado del servicio provocaría que el paquete vuelva a ser procesado, y que a raíz de esto el servicio vuelva a cambiar su estado incorrectamente. 
     - Es por eso que estos servicios deben persistír el id del paquete que generó el último cambio en ese estado, y si vuelven a recibirlo pueden detectarlo y simplemente evitar actualizar el estado otra vez.
-
+- Los ids de los paquetes son generados por el `input gateway` a medida que los recibe por cada cliente.
+  - En algunos servicios tenemos que generar nuevos paquetes que son el resultado del procesamiento de múltiples paquetes previos. Ene stos casos, simplemente decidimos que el id del neuvo paquete sea el id del último paquete procesado que influyó en el estado del nuevo paquete.
