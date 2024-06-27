@@ -138,7 +138,7 @@ Para soportar que múltiples clientes se conecten en simultaneo al sistema (Sin 
   - En `Review Filter` ahora hay un thread recibiendo libros y otro recibiendo reviews en simultaneo.
   - En `Input` y `Output` se crearon threads para manejar la conexión de los clientes.
 
-## Tolerancia a fallos
+## Tolerancia a fallas
 Para soportar la tolerancia a fallas se implementaron las siguientes modificaciones:
 ### Uso de ACKs en rabbitMQ
 - Se implementó el uso de ACKs en RabbitMQ para garantizar que los mensajes no se pierdan en caso de que un servicio falle mientras los está procesando.
