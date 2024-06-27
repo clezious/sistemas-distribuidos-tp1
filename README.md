@@ -40,10 +40,10 @@ El sistema debe soportar el incremento de los volumenes de computo, con tal de p
     una cola de salida que depende del hash obtenido.
 - Client
   - Lee csv con books y reviews y los envia al Boundary. Al finalizar, recibe del boundary los resultados y los almacena en archivos csv (1 por cada query)
-- Input_Boundary
-  - Configurable para procesar `books` o `reviews` enviados por un cliente en formato csv.
-    eliminar campos que no sean necesarios, y depositar cada item en una cola de salida.
-- Output boundary
+- Input_gateway
+  - Recibe tanto `books` como `reviews` de un cliente en formato csv, los parsea, eliminar campos que no sean necesarios, y deposita cada item en exchange de salida (separado por tipo de item).
+  - Soporta hasta N clientes conectados en simultaneo, haciendo uso de un ThreadPool.
+- Output_gateway
   - Espera los resultados de las queries y los envia al cliente.
 - Books_by_author_decades_counter
   - Recibe `books` de una cola de entrada y almacena por cada autor las decadas en las que publicó un libro.
