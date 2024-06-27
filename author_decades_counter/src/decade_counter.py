@@ -87,5 +87,5 @@ class DecadeCounter:
             client_id = int(client_id)
             if client_id not in self.authors:
                 self.authors[client_id] = {}
-            self.authors[client_id][author] = json.loads(self.persistence_manager.get(key, secondary_key))
+            self.authors[client_id][author] = json.loads(self.persistence_manager.get(key, secondary_key) or '[]')
         logging.info(f"State initialized with {self.authors}")
