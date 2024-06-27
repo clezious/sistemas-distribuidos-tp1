@@ -39,7 +39,6 @@ class InputBoundary:
         self.books_middleware_sender_thread = None
         self.reviews_middleware_sender_thread = None
         self.client_id = 0
-        self.connected_clients_state: dict[int, int] = {}
         self.persistence_manager = PersistenceManager('../storage/input_boundary')
         self.persistence_manager_lock = threading.Lock()
         self.books_exchange = books_exchange
@@ -90,11 +89,14 @@ class InputBoundary:
                     middleware.shutdown()
                     break
                 middleware.send(packet.encode())
-                if should_clean_on_eof and packet.packet_type == PacketType.EOF:
+                if packet.packet_type == PacketType.EOF:
                     client_id = packet.client_id
-                    with self.persistence_manager_lock:
-                        self.connected_clients_state.pop(client_id, None)
-                        self.persistence_manager.delete_keys(f"{CLIENT_STATE_PREFIX}{client_id}")
+                    logging.info(f"Sent EOF packet for client {client_id} to {output_exchange}")
+                    if not should_clean_on_eof:
+                        self._change_client_state(client_id, ClientState.SENDING_REVIEWS)
+                    else:
+                        with self.persistence_manager_lock:
+                            self.persistence_manager.delete_keys(f"{CLIENT_STATE_PREFIX}{client_id}")
             except OSError:
                 logging.error("Middleware closed")
                 break
@@ -104,26 +106,26 @@ class InputBoundary:
         packet_id = 0
 
         client_socket.settimeout(TIMEOUT)
+        queued_books_eof = False
 
         with client_socket:
             client_socket.sendall(client_id.to_bytes(CLIENT_ID_BYTES, byteorder='big'))
             self._change_client_state(client_id, ClientState.SENDING_BOOKS)
             while self.should_stop is False:
                 try:
-                    current_state = self.connected_clients_state.get(client_id)
                     data = receive_line(client_socket, LENGTH_BYTES).decode().strip()
                     logging.debug("Received line: %s", data)
                     if data == EOF_STR:
-                        logging.info(f"EOF reached for {client_id}. Current state: {current_state}")
+                        logging.info(f"EOF reached for {client_id} - queueing EOFPacket {packet_id}")
                         eof_packet = EOFPacket(client_id, packet_id)
-                        if current_state == ClientState.SENDING_BOOKS:
+                        if not queued_books_eof:
                             self.books_packet_queue.put(eof_packet)
-                            self._change_client_state(client_id, ClientState.SENDING_REVIEWS)
+                            queued_books_eof = True
                             packet_id += 1
                         else:
                             self.reviews_packet_queue.put(eof_packet)
                             break
-                    elif current_state == ClientState.SENDING_BOOKS:
+                    elif not queued_books_eof:
                         packet = Book.from_csv_row(data, client_id, packet_id)
                         if packet:
                             self.books_packet_queue.put(packet)
@@ -138,7 +140,7 @@ class InputBoundary:
                     logging.error(e)
                     logging.error(f"Sending EOF packet for client {client_id}")
                     eof_packet = EOFPacket(client_id, packet_id)
-                    if self.connected_clients_state.get(client_id) == ClientState.SENDING_BOOKS:
+                    if not queued_books_eof:
                         self.books_packet_queue.put(eof_packet)
                     self.reviews_packet_queue.put(eof_packet)
                     break
@@ -180,15 +182,15 @@ class InputBoundary:
 
     def _change_client_state(self, client_id: int, new_state: ClientState):
         with self.persistence_manager_lock:
-            self.connected_clients_state[client_id] = new_state
             self.persistence_manager.put(f"{CLIENT_STATE_PREFIX}{client_id}", str(new_state))
 
     def _init_state(self):
         for (key, _secondary_key) in self.persistence_manager.get_keys(CLIENT_STATE_PREFIX):
             client_id = int(key.removeprefix(CLIENT_STATE_PREFIX))
-            # client_state = ClientState.from_str(self.persistence_manager.get(key))
+            client_state = ClientState.from_str(self.persistence_manager.get(key))
             eof_packet = EOFPacket(client_id, -1)
-            self.books_packet_queue.put(eof_packet)
+            if client_state == ClientState.SENDING_BOOKS:
+                self.books_packet_queue.put(eof_packet)
             self.reviews_packet_queue.put(eof_packet)
             logging.info(f"Sent EOF packet for client {client_id}")
         self.persistence_manager.delete_keys(CLIENT_STATE_PREFIX)
