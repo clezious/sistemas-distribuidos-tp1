@@ -32,18 +32,20 @@ El sistema debe soportar el incremento de los volumenes de computo, con tal de p
   - Toma `books` de una cola de entrada, los filtra leyendo el campo y valor (o rango)
     configurados, y los deposita en una cola de salida.
 - Review_filter
-  - Toma `books` de una cola de entrada, luego toma `reviews` de otra cola de entrada
-    y las filtra dependiendo de si corresponden a un `book` recibido anteriormente.
-    Por último deposita las `reviews` filtradas en una cola de salida.
+  - Toma `books` y `reviews` de distintas colas de entrada. Filtra las reviews
+    dependiendo de si corresponden a un `book` recibido anteriormente y las deposita
+    en una cola de salida. Si se recibe una review antes que el libro al que pertenece, y no se terminaron de procesar todos los libros, se reencola la review (esto se detalla mas abajo en la seccion de [Reencolado](#reencolado)).
+  - Las reviews que pasan el filtro son depositadas en colas de salida configurables.
 - Router
   - Recibe elementos (`books` o `reviews`) de una cola de entrada,
     les aplica un hash sobre un campo configurable y los deposita en
     una cola de salida que depende del hash obtenido.
 - Client
-  - Lee csv con books y reviews y los envia al Boundary. Al finalizar, recibe del boundary los resultados y los almacena en archivos csv (1 por cada query)
+  - Lee csv con books y reviews y los envia al Input Gateway. Al mismo tiempo, recibe en forma de _streaming_ los resultados de las queries del Output Gateway.
 - Input_gateway
   - Recibe tanto `books` como `reviews` de un cliente en formato csv, los parsea, eliminar campos que no sean necesarios, y deposita cada item en exchange de salida (separado por tipo de item).
   - Soporta hasta N clientes conectados en simultaneo, haciendo uso de un ThreadPool.
+  - Si se cae, se invalidan las queries que estaban siendo procesadas y se limpia el sistema.
 - Output_gateway
   - Espera los resultados de las queries y los envia al cliente.
 - Books_by_author_decades_counter
@@ -89,6 +91,8 @@ Asimismo, decidimos no incluir en el diagrama a los Docktors, ya que estos no so
 
 La topologia de despliegue del sistema es en forma de estrella. El nodo que aloja el servicio de RabbitMQ es quien se encuentra en el centro. Los demas nodos se comunican a traves de colas de mensajes provistas por dicho servicio. De esta forma, nunca se encuentran comunicados directamente entre si, sino que siempre lo hacen a traves de RabbitMQ.
 
+Tambien se puede observar los docktors, y como se organizan con una topologia de anillo. Cada docktor se encarga de monitorear al siguiente en el anillo y un subconjunto de los servicios. El subconjunto se determina por el id de la instancia de docktor y un hash sobre el nombre del servicio.
+
 ## Vista de Procesos
 
 ### Diagrama de Actividades
@@ -106,7 +110,9 @@ Hay que considerar que aunque no se ven plasmadas en el diagrama por cuestiones 
 ![Diagrama de secuencia](./images/diagrama_secuencia.png)
 [Link al diagrama](https://viewer.diagrams.net/?page-id=78cztUaxTj71S7lKw_Nt&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=78cztUaxTj71S7lKw_Nt#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
-En este diagrama de secuencia se puede visualizar el flujo de mensajes entre los distintos servicios con el fin de procesar, en este caso, la query 4. Notese un detalle importante, que es que el servicio de reviews filter debe esperar a que todos los libros hayan sido procesados para poder empezar a filtrar las reviews. Esto se debe a que, para saber que reviews corresponden a que libros, primero se llegan los libros, se guardan en el filtro, y luego las reviews son filtradas.
+En este diagrama de secuencia se puede visualizar el flujo de mensajes entre los distintos servicios con el fin de procesar, en este caso, la query 4. 
+
+A diferencia del TP1, ya no es necesario esperar a que se procesen todos los libros para empezar a procesar las reviews. Ahora, el nodo de review_filter cuenta con 2 threads, uno para procesar libros y otro para procesar reviews. Esto permite que el sistema no quede bloqueado procesando informacion de un solo cliente, y pueda atender a multiples clientes en simultaneo.
 
 Otro aspecto intersante es que el servicio de Reviews_mean_rating_aggregator debe esperar a que todos los servicios de Review_stats_service hayan terminado y enviado su top 10 local, antes de proceder a calcular el top 10 global.
 
@@ -118,13 +124,13 @@ Otro aspecto intersante es que el servicio de Reviews_mean_rating_aggregator deb
 
 [Link al diagrama](https://viewer.diagrams.net/?page-id=hVfBI8x4F1AI7FTGm5cZ&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=hVfBI8x4F1AI7FTGm5cZ#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
-En este diagrama se refleja la estructura de paquetes del sistema. El input boundary es el servicio que se encarga de recibir los mensajes del cliente y enviarlos a las colas correspondientes. Dentro del mismo y al igual que en todos los servicios, se hace uso del middleware, una capa de abstraccion para trabajar sobre RabbitMQ con mayor facilidad.
+En este diagrama se refleja la estructura de paquetes del sistema. El input gateway es el servicio que se encarga de recibir los mensajes del cliente y enviarlos a las colas correspondientes. Dentro del mismo y al igual que en todos los servicios, se hace uso del middleware, una capa de abstraccion para trabajar sobre RabbitMQ con mayor facilidad.
 
 Asimismo, dicho servicio hace uso de Book, EOFPacket y Review, subclases de Packet, que representan los distintos tipos de mensajes que se pueden recibir. Por otra parte, esta el PacketDispatcher, que se encarga de parsear los mensajes recibidos y convertilos en objetos de las clases mencionadas anteriormente.
 
-Ademas, un boundary puede ser de tipo BookBoundary o ReviewBoundary, segun del tipo de mensaje que recibe. De esta manera, al recibir un mensaje, el boundary lo parsea y lo envia a la cola correspondiente, con el formato correspondiente.
+Ademas, el input gateway usa el `PersistenceManager`, una abstraccion en forma de modulo creada por nostros para persistir el estado de los nodos en disco. Este modulo se encarga de guardar y recuperar el estado de los nodos. En este caso, el input gateway guarda el estado de los clientes conectados, de forma que si el servicio falla y se reinicia, pueda recuperar el estado y no perder las queries que estaban siendo procesadas. Tambien, se guarda el `client_id` proximo a asignar, de forma que al levantarse, pueda asignar ids a partir del primero no asignado.
 
-Finalmente, el input boundary utiliza funciones auxiliares de recepcion de mensajes por sockets, con el fin de evitar problemas de short-read. Dichas funciones se encuentran en un modulo llamado receive_utils
+Finalmente, el input gateway utiliza funciones auxiliares de recepcion de mensajes por sockets, con el fin de evitar problemas de short-read. Dichas funciones se encuentran en un modulo llamado receive_utils
 
 ## DAG
 
@@ -132,7 +138,7 @@ Finalmente, el input boundary utiliza funciones auxiliares de recepcion de mensa
 
 [Link al diagrama](https://viewer.diagrams.net/?page-id=9488BZJgpK-lBa-DFY4Z&highlight=0000ff&edit=_blank&layers=1&nav=1&page-id=9488BZJgpK-lBa-DFY4Z#G1wfcmCg63otTVOHnEUja5Xv4oczVIh9BT)
 
-En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las queries. Las queries se pueden interpretar como los distintos caminos desde el input boundary hasta el output boundary. Algunas queries, como la 3 y la 4 comparten parte de su camino, hasta bifurcarse. De esta forma, se optimiza el flujo de informacion, y no se repiten calculos innecesarios.
+En el DAG se pueden observar aquellos datos que son necesarios para procesar cada una de las queries. Las queries se pueden interpretar como los distintos caminos desde el input gateway hasta el output gateway. Algunas queries, como la 3 y la 4 comparten parte de su camino, hasta bifurcarse. De esta forma, se optimiza el flujo de informacion, y no se repiten calculos innecesarios.
 
 # Parte 2:
 
