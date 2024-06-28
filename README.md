@@ -170,7 +170,11 @@ Por otra parte, en el `review_filter` se implementó el uso de Threads para pode
 
 Sin embargo, esto conlleva un problema, ya que podriamos estar reencolando una review atras de un EOF de reviews. Esto resultaria en que se procese el EOF primero, lo cual limpia el estado para el cliente que le pertenece, produciendo que la review que se reencolo pueda llegar a ser descartada de forma erronea. Es por eso que si se reencola una review, se guarda tanto en disco como en memoria que se debe reencolar el EOF tambien.
 
-Decidimos implementar este mecanismo de reencolado ya que partimos de la suposicion de que la cantidad de libros es menor a la cantidad de reviews, y que ademas los clientes primero envian los libros y luego las reviews. Esto lleva a que sea probable que para el momento en el que se empiecen a recibir las reviews en el `review_filter`, ya haya una gran cantidad de libros guardados en el filtro. Por lo tanto, es probable que se encuentre el libro al que pertenece la review y no sea necesario reencolarla.
+Consideramos que este mecanismo de reencolado es razonable, ya que:
+- La cantidad de libros a procesar es mucho menor a la cantidad de reviews
+- Los clientes solo empiezan a enviar reviews una vez que mandaron todos sus libros
+- Por los dos puntos anteriores, es muy probable que para el momento en que lleguen reseñas al filtro ya hayan llegado todos o casi todos los libros de ese cliente, aumentando las probabilidades de que no se deba reencolar la reseña.
+- El servicio de filtro de reviews se puede escalar particionando los libros que recibe cada uno, de esta forma se puede distribuir la carga de cada instancia, y con ello reducir el tiempo requerido hasta tener todos los libros necesarios para filtrar reseñas.
 
 ### Modificacion del protocolo Cliente - Gateways
 
