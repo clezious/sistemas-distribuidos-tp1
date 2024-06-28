@@ -294,3 +294,9 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
     - Es por eso que estos servicios deben persistír el id del paquete que generó el último cambio en ese estado, y si vuelven a recibirlo pueden detectarlo y simplemente evitar actualizar el estado otra vez.
 - Los ids de los paquetes son generados por el `input gateway` a medida que los recibe por cada cliente.
   - En algunos servicios tenemos que generar nuevos paquetes que son el resultado del procesamiento de múltiples paquetes previos. Ene stos casos, simplemente decidimos que el id del neuvo paquete sea el id del último paquete procesado que influyó en el estado del nuevo paquete.
+
+### Caida de Gateway
+
+Consideramos la caida de un gateway como una situacion critica. Si cualquiera de ellos cae, se pierden los paquetes encolados en la Queue en memoria y los clientes pierden la conexion. Ademas, todo el sistema queda con un estado invalido. Por lo tanto, la decision que terminamos tomando fue la de que si un gateway se cae, los clientes se desconectan del otro gateway. En el caso de que se haya caido el input gateway, impide que el cliente se quede esperando una respuesta que nunca llegara. En el caso de que se haya caido el output gateway, impide que el cliente envie mas queries que no seran procesadas.
+
+Asimismo, al volver a levantarse el input gateway, haciendo uso del estado persistido en disco, invalida las queries que no se terminaron de enviar sus books y reviews. Esto limpia el sistema, y lo deja en un estado valido para poder seguir procesando queries.
