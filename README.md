@@ -99,6 +99,8 @@ La topologia de despliegue del sistema es en forma de estrella. El nodo que aloj
 
 En este diagrama se pueden ver las distintas actividades que realiza el sistema para procesar las queries. Las distintas queries son independientes entre si, por lo que el procesamiento puede ser realizado en paralelo y puede ser visto como 5 actividades totalmente distintas.
 
+Hay que considerar que aunque no se ven plasmadas en el diagrama por cuestiones de simplicidad, muchas por no decir todas las actividades que involucren nodos con estado, realizan operaciones para persistir el estado en disco. 
+
 ### Diagrama de Secuencia
 
 ![Diagrama de secuencia](./images/diagrama_secuencia.png)
