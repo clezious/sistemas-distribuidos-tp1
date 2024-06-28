@@ -300,3 +300,13 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
 Consideramos la caida de un gateway como una situacion critica. Si cualquiera de ellos cae, se pierden los paquetes encolados en la Queue en memoria y los clientes pierden la conexion. Ademas, todo el sistema queda con un estado invalido. Por lo tanto, la decision que terminamos tomando fue la de que si un gateway se cae, los clientes se desconectan del otro gateway. En el caso de que se haya caido el input gateway, impide que el cliente se quede esperando una respuesta que nunca llegara. En el caso de que se haya caido el output gateway, impide que el cliente envie mas queries que no seran procesadas.
 
 Asimismo, al volver a levantarse el input gateway, haciendo uso del estado persistido en disco, invalida las queries que no se terminaron de enviar sus books y reviews. Esto limpia el sistema, y lo deja en un estado valido para poder seguir procesando queries.
+
+### Threads de limpieza
+
+Se implementaron threads de limpieza en los servicios que tienen estado para que eliminen el estado de aquellos clientes para los cuales no se recibio un paquete en un tiempo determinado. De esta forma, se evita que el estado de los clientes quede en memoria indefinidamente. 
+
+Estos fueron implementados en los servicios de `review_filter` y `output_gateway` en respuesta a problemas que encontramos durante el desarrollo y terminaron quedando solucionados gracias a otros cambios que hicimos. A pesar de esto, decidimos dejarlos en el sistema ya que no afectan su funcionamiento y pueden ser utiles en caso de que se presenten problemas no contemplados.
+
+Por ejemplo, en el `output_gateway`, el thread de limpieza corta la conexion y limpia el estado de un cliente si no se recibe un paquete de resultado de ese cliente en un tiempo determinado. Esto impide que el cliente se quede conectado, esperando de forma indefinida a los resultados.
+
+Estos hilos de limpieza funcionan asignando un timestamp a cada cliente, y cada vez que llega un paquete de ese cliente, se actualiza el mismo. Si el timestamp supera un tiempo determinado, se limpia el estado del cliente. El thread de limpieza simplemente verifica cada cierto tiempo si hay clientes que superaron el tiempo determinado, y en caso de que haya, limpia su estado.
