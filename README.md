@@ -154,12 +154,60 @@ Para soportar la tolerancia a fallas se implementaron las siguientes modificacio
       - `get_keys`, que dado un prefijo, devuelve todas las claves que empiezan con ese prefijo.
       - `delete_keys`, que dado un prefijo, borra todas las claves que empiezan con ese prefijo (Borrando también los archivos asociados).
     - El persistence manager no puede utilizar directamente la clave como nombre del archivo asociado, ya que las claves pueden contener caracteres no permitidos en nombres de archivos o pueden exceder el limite permitido de caracteres. Por lo tanto, se genera un `uuid` asociado a esa clave que será el nombre del archivo.
-        - Hacer esto requiere que además se guarde un indice de claves -> nombres de archivos, que a su vez debe ser persistido.
+    - Hacer esto requiere que además se guarde un índice de claves -> nombres de archivos, que a su vez debe ser persistido.
         - Estos índices pueden crecer mucho en tamaño si un servicio maneja muchas claves, por eso se soporta un parámetro adicional `secondary_key` que permite agrupar todas las claves relacionadas en un solo archivo índice.
+          - Por defecto, `secondary_key="default"`, por lo que todas las claves se guardan en el mismo archivo índice `keys_index_default`.
 - El gran problema de esta solución es que no se puede garantizar que el estado guardado sea consistente, ya que si un servicio falla mientras está guardando el estado, el archivo puede quedar corrupto.
   - Para resolver esto, se implementaron los siguientes mecanismos:
     - Al hacer una escritura con `put`, en realidad primero se escribe sobre un archivo temporal, y luego se renombra a su nombre final. De esta forma, si la escritura falla, el archivo final no se sobreescribe y se mantiene el estado anterior.
     - Al hacer tanto un `put` como un `append`, se guarda al comienzo de cada linea la longitud de los datos contenidos en esa linea. De esta forma, si la escritura falla, se puede detectar al momento de leer que la linea está corrupta y se descarta.
+- ### Ejemplo:  
+  Supongamos que una instancia de `review_filter` está recibiendo libros del cliente con `client_id=1` que luego utilizará para filtrar reviews.  
+  - Cuando recibe un libro, con `"title": "book1", "authors": "author1"` tiene que guardarlo en su estado interno, y por lo tanto debe persistirse.
+  - Para esto realiza un `append` sobre la clave `books_{client_id}` (En este caso, `books_1`) con el valor `[{book.title}, {book.authors}]` en su instancia de `PersistenceManager`.
+  - A medida que recibe libros los agrega a la misma clave, por eso se hace un `append` y no un `put` (Que implicaría sobreescribir todo el archivo de libros por cada nuevo libro una y otra vez).  
+  - Internamente, el `PersistenceManager` tendrá un archivo con todos los libros recibidos por ese cliente, uno por linea.  
+  - La primera vez que el `PersistenceManager` reciba un `append` con esa clave, no lo encontrará en su índice, por lo que debe generar un nuevo `uuid` para esa clave y guardarlo en el índice. Por ejemplo: `28bfc74d-5f75-4ecf-8e2d-77e58bc210cc`.
+  - Al mismo tiempo, la nueva entrada en el índice se debe persistir a disco, utilizando el mismo mecanismo (`PersistenceManager` hace un append en su clave `keys_index` con el valor `["books_1","28bfc74d-5f75-4ecf-8e2d-77e58bc210cc"]`).
+  - Antes de escribirse los datos en los archivos, se debe calcular la longitud de los datos a escribir y guardarse al comienzo de la linea.
+    
+  Entonces, el archivo `keys_index_default` a esta altura tendrá el siguiente contenido: (Nota: la longitud de la linea se guarda como bytes, pero lo representamos en decimal para simplificar)
+  ```
+  50["books_1","28bfc74d-5f75-4ecf-8e2d-77e58bc210cc"]
+
+  ```  
+  Y el archivo con los libros recibidos por el cliente 1, asociado a la clave `books_1`, llamado `28bfc74d-5f75-4ecf-8e2d-77e58bc210cc` tendrá el siguiente contenido:
+  
+  ```
+  19["book1","author1"]
+
+  ```  
+
+  Si ahora llega un nuevo libro `"title": "book2", "authors": "author2, author3"`, se hará un nuevo `append` sobre la clave `books_1` (El persistence manager ya conoce el archivo asociado a esa clave, por lo que no se agregan entradas al índice), y el archivo `28bfc74d-5f75-4ecf-8e2d-77e58bc210cc` se verá así:
+  ```
+  19["book1","author1"]
+  28["book2","author2, author3"]
+
+  ```  
+  Pero si al llegar un tercer libro (Por ejemplo, `"title": "book3", "authors": "author4"`) el servicio falla en el momento en el que se está realizando la escritura, y solo se llega a escribir una parte de la linea, el archivo podría verse así:
+  ```
+  19["book1","author1"]
+  28["book2","author2, author3"]
+  19["book3","au
+
+  ```
+  Entonces, al volver a levantarse el servicio, se ejecutará un `get` sobre la clave `books_1`. Al leer las dos primeras lineas no habrá problemas, ya que el valor de la longitud coincide con el contenido, pero al leer la tercera se detectará que la longitud de la linea no coincide con la cantidad de bytes leidos, por lo que se descartará, y el estado interno del servicio será algo como:
+  ```
+  { 
+    "book1": "author1", 
+    "book2": "author2, author3"
+  }
+
+  ```
+  Eventualmente el servicio volverá a recibir el paquete que no pudo terminar de procesar que contenía al `book3´, dado que nunca envió el ACK correspondiente a Rabbit, por lo que lo agregará a su estado interno y lo persistirá (esperemos que esta vez si) correctamente.  
+  De esta manera el servicio puede volver a levantarse y recuperar su estado interno, aunque haya fallado en medio de una escritura, generando una linea corrupta.
+
+
 ### Recuperación de servicios caídos: *Docktor* y *Health Checks*
 - `Docktor`
   - Se implementó un servicio llamado `Docktor` que se encarga de monitorear el estado de los servicios y reiniciarlos en caso de que fallen.
