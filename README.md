@@ -310,3 +310,7 @@ Estos fueron implementados en los servicios de `review_filter` y `output_gateway
 Por ejemplo, en el `output_gateway`, el thread de limpieza corta la conexion y limpia el estado de un cliente si no se recibe un paquete de resultado de ese cliente en un tiempo determinado. Esto impide que el cliente se quede conectado, esperando de forma indefinida a los resultados.
 
 Estos hilos de limpieza funcionan asignando un timestamp a cada cliente, y cada vez que llega un paquete de ese cliente, se actualiza el mismo. Si el timestamp supera un tiempo determinado, se limpia el estado del cliente. El thread de limpieza simplemente verifica cada cierto tiempo si hay clientes que superaron el tiempo determinado, y en caso de que haya, limpia su estado.
+
+
+### Comentario sobre el uso de Threads
+Decidimos usar Threads en lugar de procesos, inlcuso sabiendo sobre las limitaciones de los Threads de python y su _GIL_, dado que consideramos que en general el factor limitante es siempre en _IO_ y no en procesamiento, para todos los nodos del sistema que requieren Threads, Además de que un thread es más ligero que un proceso en recursos utilizados.  
