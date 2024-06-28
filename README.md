@@ -146,7 +146,7 @@ El servicio de `input_gateway` ahora asigna un `client_id` a cada cliente al mom
 
 En un principio, habiamos planteado tener un `uuid`. No obstante, terminamos optando por un `id` incremental ya que nos asegura que no haya colisiones y es mas facil de realizar un seguimiento de los paquetes.
 
-El `client_id` es persistido en disco por el `input_gateway` al igual que el estado actual de los clientes (si estan enviando libros o reviews). Esto permite poder recuperar el estado e invalidar las queries interrumpidas por el fallo. De esta forma, se puede garantizar que el `client_id` sea único y no se repita incluso frente a fallas del sistema.
+El `client_id` es persistido en disco por el `input_gateway` al igual que el estado actual de los clientes (si estan enviando libros o reviews). Esto permite poder recuperar el estado e invalidar las queries interrumpidas en caso de que el servicio falle y se reinicie. De esta forma, se puede garantizar que el `client_id` sea único y no se repita incluso frente a fallas del sistema.
 
 En cuanto al estado de cada servicio, tuvimos que modificar todos los nodos que guardaban informacion para que soporte mulitples cliente. Todos los servicios con estado ahora guardan el estado de cada cliente por separado, usando el `client_id` para diferenciarlos. Esta independencia de estados permite que cada cliente pueda enviar sus datos y recibir sus resultados sin interferir con los otros clientes. Ademas, facilita la limpieza de los estados de los clientes una vez que estos terminan de enviar sus datos y recibir sus resultados, o en caso de error.
 
